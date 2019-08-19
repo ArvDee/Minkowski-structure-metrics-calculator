@@ -1,11 +1,7 @@
-#ifndef COLLOID_FBMC_MAIN_H
-#define COLLOID_FBMC_MAIN_H
+#ifndef BOOP_MAIN_H
+#define BOOP_MAIN_H
 
-#include "sim.h"
+#include "process.h"
+#include "gsd_loader.h"
 
-// #include scene.h // Nick's partviewer3D for visualization
-
-
-
-
-#endif // end header guard COLLOID_FBMC_MAIN_H
+#endif // end header guard BOOP_MAIN_H

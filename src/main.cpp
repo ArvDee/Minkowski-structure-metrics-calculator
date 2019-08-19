@@ -1,71 +1,106 @@
 #include "main.h"
 
-
-
-
-unsigned int N_particles = 1;
-double Tetrahedron_rounding = 0.0;
-std::string initial_config_file_name;
-
-/* --------- Process all command line input ---------
- * Sorts command line input into their relevant simulation components. Most notably, splits
- * simulation input from visualization input.
- */
-void process_command_line_input(int argc, char *argv[]){
-	 if(argc < 5){
- 		printf("Incorrect number of arguments: please try ./fbmc -N [#particles] -s [ROUNDING]\n");
-		printf("Optionally, add '-init [FILENAME]' to initialize from a certain configuration.\n");
- 		exit(42);
- 	}
- 	if(argc >= 5){
- 		for(int arg = 1; arg < argc; arg++){
- 			if(strcmp(argv[arg],"-N") == 0){
- 				N_particles = strtol(argv[arg+1],NULL,10);
- 				if(N_particles == 0){printf("Invalid number of particles.\n");exit(42);}
- 				printf("Argument '%s %s': set number of particles to %u.\n",argv[arg],argv[arg+1],N_particles);
- 				arg+=1;
- 			}
- 			else if(strcmp(argv[arg],"-s") == 0){
- 				Tetrahedron_rounding     = strtod(argv[arg+1],NULL);
- 				printf("Argument '%s %s': set tetrahedra rounding fraction to %lf.\n",argv[arg],argv[arg+1],Tetrahedron_rounding);
- 				if(Tetrahedron_rounding == 1.0){printf("Rounding is 1, making spheres.\n");} // Spheres
- 				if(Tetrahedron_rounding == 0.0){printf("Rounding is 0, making sharp tetrahedra.\n");} // Sharp tetrahedra
-				if(Tetrahedron_rounding < 0.0 || Tetrahedron_rounding > 1.0){
-					printf("Please set a rounding between 0 and 1.\n");
-					exit(42);
-				}
- 				arg+=1;
- 			}
-			else if(strcmp(argv[arg],"-init") == 0){
- 				initial_config_file_name = std::string(argv[arg+1]);
- 				printf("Argument '%s %s': loading initial configuration from file '%s'.\n",argv[arg],argv[arg+1],argv[arg+1]);
- 				arg+=1;
- 			}
-			else{
-				printf("Unknown input: '%s'. Please try './mc -N [#particles] -s [ROUNDING]'.\n",argv[arg]);
-				exit(42);
-			}
- 		}
- 	}
- }
-
 /* --------- ======= MAIN ======= ---------
  *
  */
 int main(int argc, char *argv[]){
+  if(argc < 3){
+    printf("Incorrect number of arguments: please try './boop [MAX L] [FILE 1] [FILE 2] ... [FILE N]'\n");
+    exit(42);
+  }
+  size_t max_l = strtol(argv[1],NULL,10);
 
-	// Process command line input to split simulation and visualization input
-	process_command_line_input(argc,argv);
+  // Create a processor instance that will handle the calculation
+  SnapshotProcessor processor;
 
-	// Begin threaded environment where one thread does the simulation and possibly another the visualization
 
-		// Perform simulation
-		Simulation sim(N_particles, Tetrahedron_rounding, initial_config_file_name);
+  for(int arg = 2; arg < argc; arg++){
 
-		// Also do live visualization
-		// somethingsomething scene();
+    // Check whether we have a coordinate text file (.dat, usually) or a GSD binary file (.gsd)
+    std::string file_name(argv[arg]);
+    // Strip the path from the file name
+    std::string::size_type slash_idx = file_name.rfind('/');
+    std::string short_file_name = file_name.substr(slash_idx+1, file_name.length());
+    // Find the last dot in the file name
+    std::string extension;
+    std::string::size_type dot_idx = short_file_name.rfind('.');
+    if(dot_idx != std::string::npos){
+      extension = short_file_name.substr(dot_idx + 1);
+    }else{
+      printf("Error: No file extension found for supposed file '%s'.\n",file_name.c_str());
+    }
+    // Strip the extension from the file name and use short name to name BOOP files later
+    short_file_name = short_file_name.substr(0, dot_idx);
 
-	// End threaded environment
+    // Load the file and calculate bond order parameters
+    if(extension == "gsd" || extension == "GSD"){
+      // Create a GSD loader object that will handle the loading
+      GSD_Loader gsd_loader;
+      // Give the gsd loader pointers to where it should store the loaded data
+    	gsd_loader.set_data_pointers(&processor.box, &processor.positions);
+      // Open the file
+      gsd_loader.open_gsd_file(file_name.c_str());
+      size_t n_frames = gsd_loader.n_frames();
+      // GSD files can contain multiple frames, so those should be specified by the user as well
+      // The character '-' stands for "do all frames", "-1" for the last frame.
+      std::string frame_str = "-1";
+      if(arg+1 < argc) frame_str = std::string(argv[arg+1]);
+      if( !strcmp(frame_str.c_str(),"-") ){ // strcmp returns 0 if string ARE identical, so invert
+        for(size_t i = 0; i < n_frames; i++){
+          gsd_loader.gsd_load_frame(i);
+          // GSD always has upper triangular boxes
+          // processor.calculate_order_parameters_upperTriangularBox(max_l);
+          processor.calculate_order_parameters_generalBox(max_l);
+        }
+      }else{
+        char* non_nr;
+        int frame_nr = strtol(frame_str.c_str(), &non_nr, 10);
+        // Check to make sure the frame specifier is actually a number
+        if(*non_nr && non_nr[0] != '-'){
+          printf("Error: frame specifier '%s' is not '-' or a number.\n",frame_str.c_str());
+          exit(42);
+        }
+        // Negative integers load backwards i.e. -1 is the last frame in the file.
+        if(frame_nr < 0){
+          frame_nr = n_frames - (frame_nr + 2); // +2 so that -1 becomes last element
+        }
+        // Load the specified frame
+        gsd_loader.gsd_load_frame(frame_nr);
+        // GSD always has upper triangular boxes
+        processor.calculate_order_parameters_upperTriangularBox(max_l);
+        // processor.calculate_order_parameters_generalBox(max_l);
+      }
+      // The specified frame also takes up an argument slot => increment before processing next one
+      arg++;
+    }else if(extension == "dat"){
+      // Load in the snapshot
+      processor.load_snapshot(argv[arg]);
+      // Check whether 1st box vec is along x and 2nd in xy
+      if(processor.box[1] != 0 || processor.box[2] != 0 || processor.box[5] != 0){
+        // Voro++ only wants col-major upper triangular, so we need extra steps
+        processor.calculate_order_parameters_generalBox(max_l);
+      }else{
+        // no need for extra steps
+        // processor.calculate_order_parameters_upperTriangularBox(short_file_name, max_l);
 
-	return 1; // Simulation ended successfully
+        // WARNING The above doesn't yield correct order parameters yet, for some reason.
+        // The below method does.
+        processor.calculate_order_parameters_generalBox(max_l);
+      }
+    }else{
+      printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
+    }
+    // Save the calculated bond order parameters to a file in the same directory as the source
+    std::string dir_name = file_name.substr(0, slash_idx+1);
+    processor.save_qw_files(dir_name,""); // second argument is an optional string to give the file name
+  }
+
+
+
+
+
+
+
+
+	return 1;
 }

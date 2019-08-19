@@ -5,10 +5,14 @@
 #include <complex>
 #include <iostream>
 #include <malloc.h>
+#include <cmath>
+#include <unordered_map>
+#include <eigen3/Eigen/Geometry>
+#include <algorithm>
 // #include <time.h> // Just to seed RNG with local time
 
 /******************************************************************************
-  These files define an interface for calculating the Minkowski structure
+  These files define a class for calculating the Minkowski structure
 	metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
 	bond orientational order parameters for the analysis of disordered
 	particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
@@ -17,76 +21,73 @@
 	the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
 ******************************************************************************/
 
-// NOTE
-// For even l spherical harmonics we don't need a bond _direction_, so can optimize those?
-// If particle is anisotropic, should we rotate angles into particle frame?
-//   => Probably not, since spherical harmonics are rotationally invariant.
-
-
-// void msm_prepare(unsigned int n_positions, double **positions, double box[9]) // calculates neighbours
-// void calc_ql(unsigned int p_idx, unsigned int l) // calculates q_l for particle p
-// void calc_wl(unsigned int p_idx, unsigned int l) // calculates w_l for particle p
-// void calc_all_ql(unsigned int p_idx, unsigned int l, float *q) // calculates q_l for all particles
-// void calc_all_wl(unsigned int p_idx, unsigned int l, float *w) // calculates w_l for all particles
-
-
-
-
 namespace MSM {
 
+struct neighbourBonds {
+	std::vector<int> indices;
+	std::vector<double> face_areas;
+	float cell_area;
+  std::vector<float> thetas;
+  std::vector<float> phis;
+};
 
-  struct Voro_Nbs {
-		std::vector<std::vector<int>> indices;
-		std::vector<std::vector<double>> face_areas;
-		std::vector<double> cell_areas;
-    std::vector<std::vector<double>> thetas;
-    std::vector<std::vector<double>> phis;
-  };
+class MinkowskiStructureCalculator {
+private:
+  std::vector<std::vector<float>> positions_;
+  std::vector<float> box_;
+  std::vector<neighbourBonds> nbs_;
+
+  // Applies periodic boudary conditions
+  Eigen::Vector3d nearest_image(
+    const Eigen::Vector3d& pos1,
+    const Eigen::Vector3d& pos2,
+    const Eigen::Matrix3d& box
+  );
+  // Calculates the associated Legendre polynomial P_l^m(x)
+  float LegendrePlm_m_gtr_0(int l, int m, float x);
+  // Unit test for the LegendrePlm_m_gtr_0 function
+  void verify_LegendreP(void);
+  // Calculates ln((x-1)!) for integers x > 0 and tabulates them for reuse.
+  float gammln_i(int i);
+  // Calculate the Wigner 3j-symbols using the Racah formula
+  float wigner3j(int l, int m1, int m2, int m3);
+  // Unit test for the wigner3j function
+  void verify_wigner3j(void);
+  // Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
+  float spherical_harmonic_factor(unsigned int l, int m);
+  // Calculates a spherical harmonic Y_l^m(z,phi)
+  std::complex<float> spherical_harmonic(int l, int m, float theta, float phi);
+  // Unit check for the spherical_harmonic function
+  void verify_spherical_harmonic(void);
+  // Does a number of checks to ensure the Voro++ output is usable
+  void verify_voro_results(void);
+  // Copies the input configuration a few times if it is too small
+  void enlarge_configuration(void);
+
+public:
+  MinkowskiStructureCalculator(void);
+  virtual ~MinkowskiStructureCalculator(void){};
+
+  // Loads in a configuration
+  void msm_prepare(
+    const std::vector<std::vector<float>>& positions,
+    const std::vector<float>& box
+  );
+  // Calculates a single q_l for particle p
+  float ql(unsigned int p, unsigned int l);
+  // Calculates a single w_l for particle p
+  float wl(unsigned int p, unsigned int l);
+  // Fills the q and w vectors with their values for input positions, starting from l=0
+  void compute(
+      const std::vector<std::vector<float>>& positions,
+      const std::vector<float>& box,
+      std::vector<std::vector<float>>& q,
+      std::vector<std::vector<float>>& w
+  );
+};
 
 
-	// Calculates the associated Legendre polynomial P_l^m(x)
-	// RvD: Checked outputs, matches GNU scientific library with rel. error ~1E-8.
-	float LegendrePlm_m_gtr_0(int l, int m, double x);
-
-	// Calculates ln(x!) so we can calculate (l-m)!/(l+m)!
-	// RvD: Checked outputs, matches GNU scientific library with rel. error ~1E-16.
-	double gammln(double xx);
-
-	// Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
-	double spherical_harmonic_factor(unsigned int l, int m);
-
-	// Calculates a spherical harmonic Y_l^m(z,phi)
-	std::complex<double> spherical_harmonic(int l, int m, double theta, double phi);
-
-// input: set of coordinates in a box of which we want the Minkowski structure metrics
-// output: array of requested MSM
-
-	// C form
-	void msmc(size_t n_positions, double **positions, double box[9], double (*q)[6]);
-
-	// C++ form
-	void msm(
-		const std::vector<std::vector<double>>& positions,
-		const std::vector<double>& box, // column-major, upper triangular (a,b,c,0,e,f,0,0,g)
-		std::vector<std::vector<double>>& q,
-		std::vector<std::vector<double>>& w
-	);
-
-
-
-
-	// Class that can calculate return specific Minkowski structure metrics (ql's).
-	// Should store some values (e.g. spherical harmonic factors) for efficient reuse.
-	// Interface should have various levels for certain easy specific cases (e.g.
-	// spheres, which can use lab frame instead of particle frame angles).
-	// class MSMCalculator {
-	// private:
-	// public:
-	// 	MSMCalculator();
-	// 	virtual ~MSMCalculator();
-	// };
-
-}
+} // End namespace MSM
 
 
 

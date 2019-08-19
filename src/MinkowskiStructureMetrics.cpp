@@ -1,7 +1,7 @@
 #include "MinkowskiStructureMetrics.h"
 
 /******************************************************************************
-  These files define an interface for calculating the Minkowski structure
+  These files define a class for calculating the Minkowski structure
 	metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
 	bond orientational order parameters for the analysis of disordered
 	particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
@@ -10,21 +10,84 @@
 	the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
 ******************************************************************************/
 
-// NOTE
-// For even l spherical harmonics we don't need a bond _direction_, so can optimize those?
-// If particle is anisotropic, should we rotate angles into particle frame?
-//   => Probably not, since spherical harmonics are rotationally invariant.
+// Empty namespace to locally define some unit test functions
+namespace {
+  // Verify that value is identical to ref_value within tolerance. If not, raise an error.
+  void verifySimilarity(
+    const float& value,
+    const float& ref_value,
+    const float tolerance,
+    const std::string location
+  ){
+    float diff = value - ref_value;
+    float relative_diff = diff / ref_value;
+    if(relative_diff > tolerance){
+      std::cerr << "Fatal error in Minkowski metric, location '"<<location<<"'\n";
+      std::cerr << "Value, reference value, relative difference and tolerance are:\n";
+      std::cerr << value <<' '<< ref_value <<' '<< relative_diff <<' '<< tolerance <<'\n';
+      exit(42);
+    }
+  }
+  // Overload function to also handle the complex values from the spherical harmonics
+  void verifySimilarity(
+    const std::complex<float>& value,
+    const std::complex<float>& ref_value,
+    const float tolerance,
+    const std::string location
+  ){
+    std::complex<float> diff = value - ref_value;
+    float relative_diff = abs(diff) / abs(ref_value);
+    if(relative_diff > tolerance){
+      std::cerr << "Fatal error in Minkowski metric, location '"<<location<<"'\n";
+      std::cerr << "Value, reference value, relative difference and tolerance are:\n";
+      std::cerr << value.real() <<"+"<< value.imag() <<"i ";
+      std::cerr << ref_value.real() <<"+"<< ref_value.imag() <<"i ";
+      std::cerr << relative_diff <<' '<< tolerance <<'\n';
+      exit(42);
+    }
+  }
 
+}
 
 namespace MSM {
 
-  Voro_Nbs nbs_;
+  // Constructor that performs some cheap unit test upon initialization
+  MinkowskiStructureCalculator::MinkowskiStructureCalculator(void){
+    verify_spherical_harmonic();
+    verify_LegendreP();
+    verify_wigner3j();
+  }
+
+  // Applies periodic boudary conditions
+  Eigen::Vector3d MinkowskiStructureCalculator::nearest_image(
+    const Eigen::Vector3d& pos1,
+    const Eigen::Vector3d& pos2,
+    const Eigen::Matrix3d& box
+  ){
+  	// Positions in relative coordinates
+  	Eigen::Vector3d rpos1 = box.inverse() * pos1;
+  	Eigen::Vector3d rpos2 = box.inverse() * pos2;
+    // printf("%f %f %f\n",rpos1[0],rpos1[1],rpos1[2]);
+    // printf("%f %f %f\n",rpos2[0],rpos2[1],rpos2[2]);
+  	// Relative non-periodic distance vector
+  	Eigen::Vector3d r12 = rpos2 - rpos1;
+  	// Absolute distance vector, to be updated in the next few lines
+  	Eigen::Vector3d nearvec = pos2 - pos1;
+  	// Check each cardinal direction for distance > box length, then correct nearvec accordingly
+  	for(size_t d = 0; d < 3; d++){
+  		if(     r12[d] > +0.5){r12[d] -= 1.0; nearvec -= box.col(d);}
+  		else if(r12[d] < -0.5){r12[d] += 1.0; nearvec += box.col(d);}
+  	}
+    // printf("%f %f %f\n",r12[0],r12[1],r12[2]);
+  	// Return what is now the nearest image vector
+  	return nearvec;
+  }
 
 	// Calculates the associated Legendre polynomial P_l^m(x) for positive m
 	// RvD: Checked outputs, matches GNU scientific library with rel. error ~1E-8.
-	float LegendrePlm_m_gtr_0(int l, int m, double x){
+	float MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, float x){
 		// Code copied from Michiel Hermes' bond order code. Thanks Michiel!
-	  double fact,pll=0.0,pmm,pmmp1,somx2;
+	  float fact,pll=0.0,pmm,pmmp1,somx2;
 	  int i,ll;
 	  if (m < 0 || m > l || fabs(x) > 1.0)
 	    printf("Bad arguments in MSM:LegendrePlm %i %i %f\n",l,m,fabs(x));
@@ -54,28 +117,82 @@ namespace MSM {
 	  }
 	}
 
-	// Calculates ln((x-1)!) so we can calculate (l-m)!/(l+m)! as exp(gammln(l-m)+gammln(l+m))
-	// RvD: Checked outputs, matches GNU scientific library with rel. error ~1E-16.
-	double gammln(double xx){
-		// Code copied from Michiel Hermes' bond order code. Thanks Michiel!
-	  double x,y,tmp,ser;
-	  static double cof[6]={76.18009172947146,    -86.50532032941677,
-	                        24.01409824083091,    -1.231739572450155,
-	                        0.1208650973866179e-2,-0.5395239384953e-5};
-	  int j;
-	  y=x=xx;
-	  tmp=x+5.5;
-	  tmp -= (x+0.5)*log(tmp);
-	  ser=1.000000000190015;
-	  for (j=0;j<=5;j++) ser += cof[j] / ++y;
-	  return -tmp+log(2.5066282746310005*ser/x);
-	}
+  // Unit test for the LegendrePlm_m_gtr_0 function
+  void MinkowskiStructureCalculator::verify_LegendreP(void){
+    float tolerance = 1e-6;
+    // Reference values were obtained from Mathematica
+    float ref_1 = 1.0;
+    float ref_2 = -9.92774e-1;
+    float ref_3 = -4.18094e4;
+    float ref_4 = -3.85062e4;
+    float test_1 = LegendrePlm_m_gtr_0(0, 0, 0.11);
+    float test_2 = LegendrePlm_m_gtr_0(1, 1, 0.12);
+    float test_3 = LegendrePlm_m_gtr_0(8, 6, 0.15);
+    float test_4 = LegendrePlm_m_gtr_0(8, 6, -0.16);
+    verifySimilarity(test_1, ref_1, tolerance, "unit test verify_LegendreP");
+    verifySimilarity(test_2, ref_2, tolerance, "unit test verify_LegendreP");
+    verifySimilarity(test_3, ref_3, tolerance, "unit test verify_LegendreP");
+    verifySimilarity(test_4, ref_4, tolerance, "unit test verify_LegendreP");
+  }
+
+  // Calculates ln((x-1)!) for integers x > 0 and tabulates them for reuse.
+  float MinkowskiStructureCalculator::gammln_i(int x){
+    // We tabulate the outcomes for efficiency
+    static std::vector<float> table;
+    if( x+1 > int(table.size()) ){ // data for x hasn't been generated yet
+      for(int xi = table.size(); xi <= x; xi++){ // so generate intermediate values up to x
+        table.push_back( lgamma(float(xi)) );
+      }
+    }
+    return table[x];
+  }
+
+  // Calculate the Wigner 3j-symbols using the Racah formula
+  // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
+  // Note: this is the 3j symbol for ( l  l  l  )
+  //                                 ( m1 m2 m3 )
+  float MinkowskiStructureCalculator::wigner3j(int l, int m1, int m2, int m3){
+    float wigner_factor = exp(3*gammln_i(l+1) - gammln_i(3*l+2)); // (l!)^3 / (3l+1)!
+    // (-1)^m3 * sqrt(prefactor * (l-m1)!*(l+m1)!*(l-m2)!*(l+m2)!*(l-m3)!*(l-m3)! )
+    float wigner = ((std::abs(m3) % 2 == 0)? 1: -1) * sqrt(wigner_factor * exp(
+      gammln_i(l - m1 + 1) + gammln_i(l + m1 + 1) +
+      gammln_i(l - m2 + 1) + gammln_i(l + m2 + 1) +
+      gammln_i(l - m3 + 1) + gammln_i(l + m3 + 1)));
+    float txsum = 0.0;
+    for(int t = std::max(0, std::max(-m1,m2)); t <= std::min(l, std::min(l-m1,l+m2)); t++){
+      // (-1)^t * t! * (l-t)! * (l-m1-t)! * (l+m2-t)! * (t+m1)! * (t-m2)!
+      txsum += ((t % 2 == 0)? 1: -1) / exp(
+        gammln_i(t + 1)          + gammln_i(l - t + 1)      +
+        gammln_i(l - m1 - t + 1) + gammln_i(l + m2 - t + 1) +
+        gammln_i(m1 + t + 1)     + gammln_i(-m2 + t + 1)   );
+    }
+    wigner *= txsum;
+    return wigner;
+  }
+
+  // Unit test for the wigner3j function
+  void MinkowskiStructureCalculator::verify_wigner3j(void){
+    float tolerance = 1e-16;
+    // Reference values were obtained from Mathematica
+    float ref_1 = 1.0;                        // l=0, m1=0,  m2=0,  m3=0
+    float ref_2 = 1.0 / sqrt(6.0);            // l=1, m1=0,  m2=1,  m3=-1
+    float ref_3 = -sqrt(3.0/35.0);            // l=2, m1=2,  m2=-1, m3=-1
+    float ref_4 = -3.0 / (2.0 * sqrt(143.0)); // l=5, m1=-4, m2=-2, m3=5
+    float test_1 = wigner3j(0, 0, 0, 0);
+    float test_2 = wigner3j(1, 0, 1, -1);
+    float test_3 = wigner3j(2, 2, -1, -1);
+    float test_4 = wigner3j(5, -4, -2, 5);
+    verifySimilarity(test_1, ref_1, tolerance, "unit test verify_wigner3j");
+    verifySimilarity(test_2, ref_2, tolerance, "unit test verify_wigner3j");
+    verifySimilarity(test_3, ref_3, tolerance, "unit test verify_wigner3j");
+    verifySimilarity(test_4, ref_4, tolerance, "unit test verify_wigner3j");
+  }
 
 	// Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
 	// RvD: outputs match Mathematica's output at least up to l=12.
-	double spherical_harmonic_factor(unsigned int l, int m){
+	float MinkowskiStructureCalculator::spherical_harmonic_factor(unsigned int l, int m){
 		// We tabulate the constant prefactors for efficiency
-		static std::vector<std::vector<double>> factor_table;
+		static std::vector<std::vector<float>> factor_table;
 		if( l+1 > factor_table.size() ){ // data for l hasn't been generated yet
 			for(size_t l_idx = 0; l_idx <= l; l_idx++){ // so generate prefactors up to l
 				if( l_idx+1 > factor_table.size() ){ // only generate data that hasn't been generated already
@@ -86,7 +203,7 @@ namespace MSM {
 					// std::cout << factor_table[l_idx].size() << '\n';
 					for(size_t idx = 0; idx < factor_table[l_idx].size(); idx++){
 						int m_idx = idx - l_idx; // first element of table is m = -l
-						factor_table[l_idx][idx] = exp( gammln(l_idx - m_idx + 1) - gammln(l_idx + m_idx + 1) );
+						factor_table[l_idx][idx] = exp( gammln_i(l_idx - m_idx + 1) - gammln_i(l_idx + m_idx + 1) );
 						// std::cout << " m = " << m_idx << ": " << factor_table[l_idx][idx] << '\n';
 					}
 				}
@@ -96,181 +213,136 @@ namespace MSM {
 	}
 
 	// Calculates a spherical harmonic Y_l^m(z,phi)
-	std::complex<double> spherical_harmonic(int l, int m, double theta, double phi){
+	std::complex<float> MinkowskiStructureCalculator::spherical_harmonic(int l, int m, float theta, float phi){
 		// For the Minkowski metrics, the term "lfactor" cancels out in the final expression
 		// for q_l. We retain it here to keep the expression for the spherical harmonics
 		// complete and self-contained.
-		std::complex<double> Ylm;
-		double lfactor = (2*l + 1) / (4 * M_PI);
-		double lmfactorial = spherical_harmonic_factor(l, m);
+		std::complex<float> Ylm;
+		float lfactor = (2*l + 1) / (4 * M_PI);
+		float lmfactorial = spherical_harmonic_factor(l, m);
 		// The associated Legendre polynomials for positive and negative m are defined differently
 		if(m >= 0){
-			double Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
+			float Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
 			Ylm.real( Legendre_polynomial * cos(m * phi) );
 			Ylm.imag( Legendre_polynomial * sin(m * phi) );
 		}else{
-			double Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
+			float Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
 			Ylm.real( Legendre_polynomial * cos(m * phi) );
 			Ylm.imag( Legendre_polynomial * sin(m * phi) );
 		}
 		return Ylm;
 	}
 
-	// C++ compatible format
-	void msm(
-		const std::vector<std::vector<double>>& positions,
-		const std::vector<double>& box,
-		std::vector<std::vector<double>>& q,
-		std::vector<std::vector<double>>& w
-	){
-		size_t n_positions = positions.size();
-    // A safety check
-    if(q.size() != w.size() || q[0].size() != w[0].size()){
-      std::cout << "Error: vectors for ql and wl are not the same size. Fix that first, please.\n";
-      exit(42);
+  // Unit check for the spherical_harmonic function
+  void MinkowskiStructureCalculator::verify_spherical_harmonic(void){
+    float tolerance = 1e-5;
+    // Reference values were obtained from Mathematica
+    std::complex<float> ref_1(0.282095, 0.0);             // l=0, m=0,  theta=0.123, phi=0.321
+    std::complex<float> ref_2(0.71284, 0.0);              // l=3, m=0,  theta=0.123, phi=0.321
+    std::complex<float> ref_3(0.0122278,0.00914218);      // l=3, m=2,  theta=0.123, phi=0.321
+    std::complex<float> ref_4(0.0122278,-0.00914218);     // l=3, m=-2, theta=0.123, phi=0.321
+    std::complex<float> ref_5(9.03322e-06,-0.000263998);  // l=8, m=5,  theta=0.123, phi=0.321
+    std::complex<float> ref_6(-9.03322e-06,-0.000263998); // l=8, m=-5, theta=0.123, phi=0.321
+    std::complex<float> test_1 = spherical_harmonic(0, 0, 0.123, 0.321);
+    std::complex<float> test_2 = spherical_harmonic(3, 0, 0.123, 0.321);
+    std::complex<float> test_3 = spherical_harmonic(3, 2, 0.123, 0.321);
+    std::complex<float> test_4 = spherical_harmonic(3, -2, 0.123, 0.321);
+    std::complex<float> test_5 = spherical_harmonic(8, 5, 0.123, 0.321);
+    std::complex<float> test_6 = spherical_harmonic(8, -5, 0.123, 0.321);
+    verifySimilarity(test_1, ref_1, tolerance, "unit test verify_spherical_harmonic");
+    verifySimilarity(test_2, ref_2, tolerance, "unit test verify_spherical_harmonic");
+    verifySimilarity(test_3, ref_3, tolerance, "unit test verify_spherical_harmonic");
+    verifySimilarity(test_4, ref_4, tolerance, "unit test verify_spherical_harmonic");
+    verifySimilarity(test_5, ref_5, tolerance, "unit test verify_spherical_harmonic");
+    verifySimilarity(test_6, ref_6, tolerance, "unit test verify_spherical_harmonic");
+  }
+
+  // Does a number of checks to ensure the Voro++ output is usable
+  void MinkowskiStructureCalculator::verify_voro_results(void){
+    size_t N = nbs_.size();
+    // Verify that the number of neighbours equals the number of facets
+    for(size_t i = 0; i < N; i++){
+      if(nbs_[i].face_areas.size() != nbs_[i].indices.size()){
+        std::cerr << "Fatal error: Voro++ number of neighbours does not match number of facets!\n";
+        exit(42);
+      }
     }
-
-		// Check whether box is column-major upper triangular (needed for voro++)
-		if(box[3] != 0 || box[6] != 0 || box[7] != 0){
-			std::cout << "MSM Error: Box is not row-major upper triangular, which is required! Exiting.\n";
-			exit(42);
-			// TODO: some automatic detection of other valid box inputs
-			// e.g. row-major (don't forget to fix corresponding positions!)
-		}
-
-		// Define a box for the Voronoi tesselation
-		voro::container_periodic con(box[0],
-																 box[1], box[4],
-																 box[2], box[5], box[8],
-																 1, 1, 1, // number of internal subdivisions of box in voro++
-																 8);
-		// Add positions into the Voro++ box
-		for(size_t i = 0; i < n_positions; i++){
-			con.put(i, positions[i][0], positions[i][1], positions[i][2]);
-		}
-		// for (size_t i = 0; i < positions.size(); i++) {
-		// 	std::cout << positions[i][0] << ' ' << positions[i][1] << ' ' << positions[i][2] << ' '<< '\n';
-		// }
-
-		// Obtain neighbours from and areas and normals of the facets of the Voronoi cells
-		voro::c_loop_all_periodic cloop(con);
-		voro::voronoicell_neighbor c;
-		std::vector<std::vector<int> > neighbours(n_positions);
-		std::vector<std::vector<double> > face_areas(n_positions);
-		std::vector<double> cell_areas;
-		if( cloop.start() ) do if( con.compute_cell(c,cloop) ){
-			// cloop.pid() gives the index of the cell / particle currently being considered.
-			c.neighbors(  neighbours[cloop.pid()] );
-			c.face_areas( face_areas[cloop.pid()] );
-			cell_areas.push_back( c.surface_area() );
-		} while(cloop.inc());
-
-		// for(size_t i = 0; i < neighbours[0].size(); i++){
-		// 	std::cout << neighbours[0][i]
-		// 	<<' '<< positions[ neighbours[0][i] ][0]
-		//   <<' '<< positions[ neighbours[0][i] ][1]
-		//   <<' '<< positions[ neighbours[0][i] ][2]
-		// 	<< '\n';
-		// }
-		// std::cout << '\n';
-
-		// Check that we're not looping around the periodic box
-		for(size_t i = 0; i < q.size(); i++){
+    // Verify that Voro neighbours are symmetric (if i nbs j, j nbs i), as they should be
+    for(int i = 0; i < int(N); i++){
+      for(int nb_i : nbs_[i].indices){
+        auto found = std::find(
+          std::begin(nbs_[nb_i].indices),
+          std::end(nbs_[nb_i].indices),
+          i
+        );
+        if(found == nbs_[i].indices.end()){
+          std::cerr << "Fatal error: Voro++ neighbours are not symmetric!\n";
+          exit(42);
+        }
+      }
+    }
+    // Verify that Voro neighbours are unique. This can be false for very small systems.
+    for(int i = 0; i < int(N); i++){
+      for(size_t idx = 0; idx < nbs_[i].indices.size(); ++idx){
+        int nb = nbs_[i].indices[idx];
+        for(size_t idx_2 = 0; idx_2 < nbs_[i].indices.size(); ++idx_2){
+          int nb_2 = nbs_[i].indices[idx_2];
+          if(idx != idx_2 && nb == nb_2){
+            std::cerr << "Fatal error: Voro++ neighbours are not unique!\n";
+            std::cerr << "This can happen for very small systems, but bond order parameters will be wrong.\n";
+            exit(42);
+          }
+        }
+      }
+    }
+    // Verify that the sum of face areas matches the total cell area
+    for(size_t i = 0; i < N; i++){
+      double total_face_area = 0;
+      for(double area : nbs_[i].face_areas){
+        total_face_area += area;
+      }
+      if(fabs(total_face_area - nbs_[i].cell_area) / nbs_[i].cell_area > 1e-5){
+        std::cerr << "Fatal error: Voro++ face area does not match." << '\n';
+        std::cerr << "Total area of faces is " << total_face_area;
+        std::cerr << " while cell area is " << nbs_[i].cell_area << '\n';
+        exit(42);
+      }
+    }
+		// Verify that we're not looping around the periodic box
+		for(size_t i = 0; i < N; i++){
 			// Voro++ sets the particle as its own neighbour if its Voronoi cell
 			// percolates the periodic volume. So we check for that.
-			for(size_t j = 0; j < neighbours[i].size(); j++){
-				if(neighbours[i][j] == ((int) i)){
-					std::cout << "Error: Voronoi cells neighbours itself! Exiting.\n";
+			for(size_t j = 0; j < nbs_[i].indices.size(); j++){
+				if(nbs_[i].indices[j] == ((int) i)){
+					std::cerr << "Fatal error: Voro++ cell neighbours itself! Exiting.\n";
 					exit(42);
 				}
 			}
 		}
-
-		// We can now calculate the structure metrics using the Voronoi information
-		double sum_m;
-    // Loop over particles
-		for(size_t i = 0; i < q.size(); i++){
-			// Loop over all l that we want to know
-      unsigned int n_l = q[i].size();
-      std::complex<double> qlms[n_l][2 * n_l + 1];
-			for(unsigned int l = 0; l < n_l; l++){
-        // ql's
-				sum_m = 0;
-				double factor = 4 * M_PI / (2*l + 1);
-				for(int m = -((int) l); m <= ((int) l); m++){
-					qlms[l][l+m] = 0;
-					// Loop over the neighbours / facets
-					for(size_t j = 0; j < neighbours[i].size(); j++){
-						// Calculate the weight factor from the area contribution
-						double area_weight = face_areas[i][j] / cell_areas[i];
-						// Get the angles of the bond
-						double dx = positions[ neighbours[i][j] ][0] - positions[i][0];
-						double dy = positions[ neighbours[i][j] ][1] - positions[i][1];
-						double dz = positions[ neighbours[i][j] ][2] - positions[i][2];
-						// theta (polar) [0,pi], phi (azimuthal) [-pi,pi]
-						dz /= sqrt(dx*dx + dy*dy + dz*dz); // cos(theta) = dz/r
-						double phi = atan2(dy,dx);
-						// Calculate the spherical harmonic
-						std::complex<double> Ylm = spherical_harmonic(l, m, acos(dz), phi); // TODO optimize angles
-						qlms[l][l+m] += area_weight * Ylm;
-					}
-					sum_m += norm(qlms[l][l+m]);
-				}
-				q[i][l] = sqrt(factor * sum_m);
-        // wl's
-        double wigner_factor = exp(3*gammln(l+1) - gammln(3*l+2)); // (l!)^3 / (3l+1)!
-        // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
-        // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
-        for(int m1 = -((int) l); m1 <= ((int) l); m1++){
-          for(int m2 = -((int) l); m2 <= ((int) l); m2++){
-            int m3 = -m1-m2;
-            if(m3 < -((int) l) || m3 > ((int) l)){continue;} // enforce -l <= m3 <= l
-            // (-1)^m3 * sqrt(prefactor * (l-m1)!*(l+m1)!*(l-m2)!*(l+m2)!*(l-m3)!*(l-m3)! )
-            double wigner = ((std::abs(m3) % 2 == 0)? 1: -1) * sqrt(wigner_factor * exp(
-              gammln(l - m1 + 1) + gammln(l + m1 + 1) +
-              gammln(l - m2 + 1) + gammln(l + m2 + 1) +
-              gammln(l - m3 + 1) + gammln(l + m3 + 1)));
-            double txsum = 0.0;
-            for(int t = std::max(0, std::max(-m1, m2)); t <= std::min(((int) l), std::min(-m1, m2) + ((int) l)); t++){
-              // (-1)^t * t! * (l-t)! * (l-m1-t)! * (l+m2-t)! * (t+m1)! * (t-m2)!
-              txsum += ((t % 2 == 0)? 1: -1) / exp(
-                gammln(t + 1)          + gammln(l - t + 1)      +
-                gammln(l - m1 - t + 1) + gammln(l + m2 - t + 1) +
-                gammln(m1 + t + 1)     + gammln(-m2 + t + 1)   );
-            }
-            wigner *= txsum;
-            // std::cout << "l m1 m2 w3j "<<l<<' '<<m1<<' '<<m2<<' '<<wigner<<'\n';
-            w[i][l] += wigner * (qlms[l][l+m1] * qlms[l][l+m2] * qlms[l][l+m3]).real();
-          }
-        }
-        // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-        double qlms_norm = 0.0;
-				for(int m = -((int) l); m <= ((int) l); m++){
-          qlms_norm += std::norm(qlms[l][m + l]);
-        }
-        qlms_norm = sqrt(qlms_norm * qlms_norm * qlms_norm);
-        w[i][l] /= qlms_norm;
-      }
-    }
-	}
+  }
 
   // Loads a configuration and calculates the neighbour information using Voro++
-  void msm_prepare(unsigned int n_positions, double **positions, double box[9]){
-    // Erase existing neighbour data
-    nbs_.indices.clear();
-    nbs_.face_areas.clear();
-    nbs_.cell_areas.clear();
-    nbs_.thetas.clear();
-    nbs_.phis.clear();
+  void MinkowskiStructureCalculator::msm_prepare(
+    const std::vector<std::vector<float>>& positions,
+    const std::vector<float>& box
+  ){
+    size_t n_positions = positions.size();
+    // Resize the array of neighbour information to accomodate the input positions
+    nbs_.resize(n_positions);
     // Check whether box is column-major upper triangular (needed for voro++)
-    if(box[3] != 0 || box[6] != 0 || box[7] != 0){
+    if(box[1] != 0 || box[2] != 0 || box[5] != 0){
       std::cout << "MSM Error: Box is not row-major upper triangular, which is required! Exiting.\n";
       exit(42);
     }
+    Eigen::Matrix3d boxm;
+    // Make sure the Eigen box is column-major
+    boxm << box[0], box[3], box[6],
+            box[1], box[4], box[7],
+            box[2], box[5], box[8];
     // Create a Voro++ box
     voro::container_periodic con(box[0],
-																 box[1], box[4],
-																 box[2], box[5], box[8],
+																 box[3], box[4],
+																 box[6], box[7], box[8],
 																 1, 1, 1, // number of internal subdivisions of box in voro++
 																 8);
     // Fill it with the positions
@@ -281,49 +353,52 @@ namespace MSM {
 		voro::c_loop_all_periodic cloop(con);
 		voro::voronoicell_neighbor c;
 		if( cloop.start() ) do if( con.compute_cell(c,cloop) ){
-			c.neighbors(  nbs_.indices[   cloop.pid()] );
-			c.face_areas( nbs_.face_areas[cloop.pid()] );
-			nbs_.cell_areas.push_back( c.surface_area() );
+			c.neighbors( nbs_[cloop.pid()].indices   );
+			c.face_areas(nbs_[cloop.pid()].face_areas);
+      // c.check_facets();
+			nbs_[cloop.pid()].cell_area = c.surface_area();
 		} while(cloop.inc());
-		// Check that we're not looping around the periodic box
-		for(size_t i = 0; i < n_positions; i++){
-			// Voro++ sets the particle as its own neighbour if its Voronoi cell
-			// percolates the periodic volume. So we check for that.
-			for(size_t j = 0; j < nbs_.indices[i].size(); j++){
-				if(nbs_.indices[i][j] == ((int) i)){
-					std::cout << "Error: Voronoi cells neighbours itself! Exiting.\n";
-					exit(42);
-				}
-			}
-		}
+
+    // Verify that the Voro++ output is sensible
+    verify_voro_results();
+
     // Create the bond angle vectors
+    float dx,dy, dz, theta, phi;
     for(size_t i = 0; i < n_positions; i++){
-      for(size_t j = 0; j < nbs_.indices[i].size(); j++){
-        double dx = positions[ nbs_.indices[i][j] ][0] - positions[i][0];
-        double dy = positions[ nbs_.indices[i][j] ][1] - positions[i][1];
-        double dz = positions[ nbs_.indices[i][j] ][2] - positions[i][2];
+      // for(size_t j = 0; j < nbs_[i].indices.size(); j++){
+      for(int nb_i : nbs_[i].indices){
+        Eigen::Vector3d pos1;
+        pos1 << positions[i][0], positions[i][1], positions[i][2];
+        Eigen::Vector3d pos2;
+        pos2 << positions[nb_i][0], positions[nb_i][1], positions[nb_i][2];
+        Eigen::Vector3d dr = nearest_image(pos1, pos2, boxm);
+        dx = dr[0];
+        dy = dr[1];
+        dz = dr[2];
         // theta (polar) [0,pi], phi (azimuthal) [-pi,pi]
-        double theta = acos(dz / sqrt(dx*dx + dy*dy + dz*dz)); // cos(theta) = dz/r
-        double phi = atan2(dy,dx);
-        nbs_.thetas[i].push_back(theta);
-        nbs_.phis[i].push_back(phi);
+        if(dx == 0.0 && dy == 0.0){ theta = 0.0; } // handle acos(1)
+        else{ theta = acos(dz / sqrt(dx*dx + dy*dy + dz*dz)); }
+        phi = atan2(dy,dx);
+        nbs_[i].thetas.push_back(theta);
+        nbs_[i].phis.push_back(phi);
       }
     }
   }
 
   // Calculates q_l for particle p
-  double ql(unsigned int p_idx, unsigned int l){
-    double sum_m = 0.0;
-		double factor = 4 * M_PI / (2*l + 1);
+  float MinkowskiStructureCalculator::ql(unsigned int p_idx, unsigned int l){
+    float sum_m = 0.0;
+		float factor = 4 * M_PI / (2*l + 1);
 		for(int m = -((int) l); m <= ((int) l); m++){
-			std::complex<double> qlm = 0;
+			std::complex<float> qlm = 0;
 			// Loop over the neighbours / facets
-			for(size_t j = 0; j < nbs_.indices[p_idx].size(); j++){
+			for(size_t j = 0; j < nbs_[p_idx].indices.size(); j++){
 				// Calculate the weight factor from the area contribution
-				double area_weight = nbs_.face_areas[p_idx][j] / nbs_.cell_areas[p_idx];
+				float area_weight = nbs_[p_idx].face_areas[j] / nbs_[p_idx].cell_area;
 				// Calculate the spherical harmonic
-				std::complex<double> Ylm = spherical_harmonic(l, m, nbs_.thetas[p_idx][j], nbs_.phis[p_idx][j]);
+				std::complex<float> Ylm = spherical_harmonic(l, m, nbs_[p_idx].thetas[j], nbs_[p_idx].phis[j]);
 				qlm += area_weight * Ylm;
+        // if(l==1)printf("%d %d %f %f %f + %fi\n",l,m,nbs_[p_idx].thetas[j],nbs_[p_idx].phis[j],Ylm.real(),Ylm.imag());
 			}
 			sum_m += norm(qlm);
 		}
@@ -331,134 +406,67 @@ namespace MSM {
 	}
 
   // Calculates w_l for particle p
-  double wl(unsigned int p_idx, unsigned int l){
+  float MinkowskiStructureCalculator::wl(unsigned int p_idx, unsigned int l){
     // Need the qlms first
-    std::complex<double> qlms[2 * l + 1];
+    std::complex<float> qlms[2 * l + 1];
     for(int m = -((int) l); m <= ((int) l); m++){
       qlms[l+m] = 0.0;
       // Loop over the neighbours / facets
-      for(size_t j = 0; j < nbs_.indices[p_idx].size(); j++){
+      for(size_t j = 0; j < nbs_[p_idx].indices.size(); j++){
         // Calculate the weight factor from the area contribution
-        double area_weight = nbs_.face_areas[p_idx][j] / nbs_.cell_areas[p_idx];
+        float area_weight = nbs_[p_idx].face_areas[j] / nbs_[p_idx].cell_area;
         // Calculate the spherical harmonic
-        std::complex<double> Ylm = spherical_harmonic(l, m, nbs_.thetas[p_idx][j], nbs_.phis[p_idx][j]);
+        std::complex<float> Ylm = spherical_harmonic(l, m, nbs_[p_idx].thetas[j], nbs_[p_idx].phis[j]);
         qlms[l+m] += area_weight * Ylm;
       }
     }
 
     // Now we can calculate the wl
-    double wl = 0;
-    double wigner_factor = exp(3*gammln(l+1) - gammln(3*l+2)); // (l!)^3 / (3l+1)!
+    float wl = 0;
     // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
     // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
     for(int m1 = -((int) l); m1 <= ((int) l); m1++){
       for(int m2 = -((int) l); m2 <= ((int) l); m2++){
         int m3 = -m1-m2;
         if(m3 < -((int) l) || m3 > ((int) l)){continue;} // enforce -l <= m3 <= l
-        // (-1)^m3 * sqrt(prefactor * (l-m1)!*(l+m1)!*(l-m2)!*(l+m2)!*(l-m3)!*(l-m3)! )
-        double wigner = ((std::abs(m3) % 2 == 0)? 1: -1) * sqrt(wigner_factor * exp(
-          gammln(l - m1 + 1) + gammln(l + m1 + 1) +
-          gammln(l - m2 + 1) + gammln(l + m2 + 1) +
-          gammln(l - m3 + 1) + gammln(l + m3 + 1)));
-        double txsum = 0.0;
-        for(int t = std::max(0, std::max(-m1, m2)); t <= std::min(((int) l), std::min(-m1, m2) + ((int) l)); t++){
-          // (-1)^t * t! * (l-t)! * (l-m1-t)! * (l+m2-t)! * (t+m1)! * (t-m2)!
-          txsum += ((t % 2 == 0)? 1: -1) / exp(
-            gammln(t + 1)          + gammln(l - t + 1)      +
-            gammln(l - m1 - t + 1) + gammln(l + m2 - t + 1) +
-            gammln(m1 + t + 1)     + gammln(-m2 + t + 1)   );
-        }
-        wigner *= txsum;
-        // std::cout << "l m1 m2 w3j "<<l<<' '<<m1<<' '<<m2<<' '<<wigner<<'\n';
-        wl += wigner * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
+        wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
       }
     }
     // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-    double qlms_norm = 0.0;
+    float qlms_norm = 0.0;
     for(int m = -((int) l); m <= ((int) l); m++){
-      qlms_norm += std::norm(qlms[l+m]);
+      qlms_norm += norm(qlms[l+m]);
     }
     qlms_norm = sqrt(qlms_norm * qlms_norm * qlms_norm);
+    // Prevent errors if q's are almost 0 (e.g. for q=1, which should always be 0)
+    if(wl < 1e-6 && qlms_norm < 1e-6){ return 0.0; }
     return wl / qlms_norm;
   }
 
+  // Fills the q and w vectors with their values for input positions, starting from l=0
+  void MinkowskiStructureCalculator::compute(
+      const std::vector<std::vector<float>>& positions,
+      const std::vector<float>& box,
+      std::vector<std::vector<float>>& q,
+      std::vector<std::vector<float>>& w
+  ){
+    msm_prepare(positions, box);
 
 
-    // input: set of coordinates in a box of which we want the Minkowski structure metrics
-    // output: array of requested MSM
 
-  	// c compatible format NOTE WIP
-  	// void msmc(size_t n_positions, double **positions, double box[9], double (*q)[6]){
-    //
-  	// 	// Check whether box is column-major upper triangular (needed for voro++)
-  	// 	if(box[3] != 0 || box[6] != 0 || box[7] != 0){
-  	// 		std::cout << "MSM Error: Box is not row-major upper triangular, which is required! Exiting.\n";
-  	// 		exit(42);
-  	// 		// TODO: some automatic detection of other valid box inputs
-  	// 		// e.g. column-major (don't forget to fix corresponding positions!)
-  	// 	}
-    //
-  	// 	// Define a box for the Voronoi tesselation
-  	// 	// TODO: add nx,ny,nz calculation
-  	// 	voro::container_periodic con(box[0],
-  	// 		 													 box[1], box[4],
-  	// 															 box[2], box[5], box[8],
-  	// 															 // nx,ny,nz, // number of internal subdivisions of box in voro++
-  	// 															 1, 1, 1, // number of internal subdivisions of box in voro++
-  	// 															 8);
-  	// 	// Add positions into the Voro++ box
-  	// 	for(size_t i = 0; i < n_positions; i++){
-  	// 		con.put(i, positions[i][0], positions[i][1], positions[i][2]);
-  	// 	}
-    //
-  	// 	// Obtain neighbours from and areas and normals of the facets of the Voronoi cells
-  	// 	voro::c_loop_all_periodic cloop(con);
-  	// 	voro::voronoicell_neighbor c;
-  	// 	std::vector<std::vector<int> > neighbours(n_positions);
-  	// 	std::vector<std::vector<double> > normals(3*n_positions); // inner vector is flattened
-  	// 	std::vector<std::vector<double> > face_areas(n_positions);
-  	// 	std::vector<double> cell_areas;
-  	// 	if( cloop.start() ) do if( con.compute_cell(c,cloop) ){
-  	// 		// cloop.pid() gives the index of the cell / particle currently being considered.
-  	// 		c.neighbors(  neighbours[cloop.pid()] );
-  	// 		c.face_areas( face_areas[cloop.pid()] );
-  	// 		c.normals( normals[cloop.pid()] ); // These normals also contain distance, not normalized!
-  	// 		cell_areas.push_back( c.surface_area() );
-  	// 	} while(cloop.inc());
-    //
-  	// 	// for (size_t i = 0; i < neighbours[0].size(); i++) {
-  	// 	// 	std::cout << neighbours[0][i] << '\n';
-  	// 	// }
-  	// 	// std::cout << '\n';
-    //
-    //
-  	// 	unsigned int lmax = 6; // TODO replace this by summing over all _requested_ l
-  	// 	for(size_t i = 0; i < n_positions; i++){
-  	// 		for(size_t l = 0; l < lmax; l++){ q[i][l] = 0.0; } //TEMP
-  	// 	}
-    //
-  	// 	// With neighbours and weights for the MSM, we can compute them
-  	// 	for(size_t i = 0; i < n_positions; i++){
-  	// 		// Loop over all l that we want to know
-  	// 		for(unsigned int l = 0; l < lmax; l++){
-  	// 			double factor = 4 * M_PI / (2*l + 1);
-  	// 			// Loop over the neighbours / facets
-  	// 			for(size_t j = 0; j < neighbours[i].size(); j++){
-  	// 				// Calculate the weight factor from the area
-  	// 				double area_weight = face_areas[i][j] / cell_areas[i];
-  	// 				// Calculate the spherical harmonic
-  	// 				for(int m = -((int) l); m <= ((int) l); m++){
-  	// 					double dx = positions[i][0] - positions[ neighbours[i][j] ][0];
-  	// 					double dy = positions[i][1] - positions[ neighbours[i][j] ][1];
-  	// 					// theta (polar) [0,pi], phi (azimuthal) [-pi,pi]
-  	// 					double costh = positions[i][2] - positions[ neighbours[i][j] ][2]; // cos(theta) = dz
-  	// 					double phi = atan2(dy,dx);
-  	// 					std::complex<double> Ylm = spherical_harmonic(l, m, costh, phi); // TODO optimize angles
-  	// 					q[i][l] += pow(std::abs(area_weight * Ylm), 2);
-  	// 				}
-  	// 			}
-  	// 			q[i][l] = sqrt(factor * q[i][l]);
-  	// 		}
-  	// 	}
-  	// }
+
+    // Calculate the q's
+    for(size_t i = 0; i < q.size(); i++){
+      for(size_t l = 0; l < q[i].size(); l++){
+        q[i][l] = ql(i,l);
+      }
+    }
+    // Calculate the w's
+    for(size_t i = 0; i < w.size(); i++){
+      for(size_t l = 0; l < w[i].size(); l++){
+        w[i][l] = wl(i,l);
+      }
+    }
+  }
+
 }
