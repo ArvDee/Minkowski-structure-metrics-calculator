@@ -1,4 +1,3 @@
-.gitignore
 obj/Generate_shapes.nb
 bin/*
 *.nb
