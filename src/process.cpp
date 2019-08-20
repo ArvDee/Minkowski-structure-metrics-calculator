@@ -50,10 +50,14 @@ void SnapshotProcessor::load_snapshot(const std::string init_file_name){
 void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   size_t N = positions.size();
   // Calculate the bond order parameters
-  q = std::vector<std::vector<float>>(N, std::vector<float>(max_l+1));
-  w = std::vector<std::vector<float>>(N, std::vector<float>(max_l+1));
   MSM::MinkowskiStructureCalculator msm;
-  msm.compute(positions, box, q, w);
+  msm.load_configuration(positions, box);
+  q = std::vector<std::vector<float>>(max_l+1, std::vector<float>(N));
+  w = std::vector<std::vector<float>>(max_l+1, std::vector<float>(N));
+  for(size_t l = 0; l <= max_l; l++){
+    q[l] = msm.ql_all(l);
+    w[l] = msm.wl_all(l);
+  }
 }
 
 // Short test function to check whether a certain file already exists
@@ -68,7 +72,7 @@ void SnapshotProcessor::save_qw_files(
   const std::string optional_file_string
 )const{
   size_t N = positions.size();
-  size_t max_l = q[0].size()-1;
+  size_t max_l = q.size()-1;
   unsigned int idx = 2;
   std::string q_file_name = target_dir + "q" + optional_file_string + ".txt";
   std::string w_file_name = target_dir + "w" + optional_file_string + ".txt";
@@ -83,14 +87,14 @@ void SnapshotProcessor::save_qw_files(
   // Save bond order parameters q of only the particles in the unit cell to a file
   file.open(q_file_name, std::ios::out | std::ios::out);
   for(size_t i = 0; i < N; i++){
-    for(size_t j = 0; j <= max_l; j++){file << q[i][j] << " ";}
+    for(size_t l = 0; l <= max_l; l++){file << q[l][i] << " ";}
     file << '\n';
   }
   std::cout << "Saved ql data to " << q_file_name << '\n';
   file.close();
   file.open(w_file_name, std::ios::out | std::ios::out);
   for(size_t i = 0; i < N; i++){
-    for(size_t j = 0; j <= max_l; j++){file << w[i][j] << " ";}
+    for(size_t l = 0; l <= max_l; l++){file << w[l][i] << " ";}
     file << '\n';
   }
   std::cout << "Saved wl data to " << w_file_name << '\n';

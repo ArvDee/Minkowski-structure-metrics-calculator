@@ -10,7 +10,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <algorithm>
 #include <memory>
-// #include <time.h> // Just to seed RNG with local time
+#include <map>
 
 /******************************************************************************
   These files define a class for calculating the Minkowski structure
@@ -24,20 +24,27 @@
 
 namespace MSM {
 
-struct neighbourBonds {
-	std::vector<int> indices;
-	std::vector<double> face_areas;
-	float cell_area;
-  std::vector<float> thetas;
-  std::vector<float> phis;
-};
-
 class MinkowskiStructureCalculator {
 private:
+  // Struct for data to store before calculation of metrics
+  struct particleData {
+    std::vector<int> nb_indices;
+    std::vector<float> thetas; // Bond angles
+    std::vector<float> phis;   // Bond angles
+  	std::vector<double> nb_face_areas;
+  	float total_face_area;
+  };
+
   std::vector<Eigen::Vector3d> positions_;
   Eigen::Matrix3d box_;
-  std::vector<neighbourBonds> nbs_;
+  std::vector<particleData> pData_;
   voro::container_periodic* con_;
+
+  // These store calculated qlms as an associative map, with the pair (l,m) as
+  // a key. This allows us to calculate every qlm only once per input config.
+  std::map< std::pair<unsigned int, int>, std::vector<std::complex<float>> > all_qlms_;
+  std::map< std::pair<unsigned int, int>, std::vector<std::complex<float>> > all_qlm_avs_;
+
 
   // Applies periodic boudary conditions
   Eigen::Vector3d nearest_image(
@@ -73,32 +80,34 @@ public:
   virtual ~MinkowskiStructureCalculator(void);
 
   // Loads in a configuration and prepares everything for ql / wl calculation
-  void msm_prepare(
+  void load_configuration(
     const std::vector<std::vector<float>>& positions,
     const std::vector<float>& box
   );
-  // Calculates a single q_l for particle p
+
+  // Calculates a single weighted q_lm for one particle p
+  std::complex<float> qlm(unsigned int p, unsigned int l, int m)const;
+  // Calculates a single weighted averaged q_lm_av for one particle p
+  std::complex<float> qlm_av(unsigned int p, unsigned int l, int m)const;
+  // Calculates a single q_l for one particle p
   float ql(unsigned int p, unsigned int l)const;
-  // Calculates a single w_l for particle p
+  // Calculates a single w_l for one particle p
   float wl(unsigned int p, unsigned int l)const;
-  // Calculates a single q_l_av for particle p (q_l averaged over neighbours)
-  // float ql_av(unsigned int p, unsigned int l)const;
-  // Calculates a single w_l_av for particle p (w_l averaged over neighbours)
-  // float wl_av(unsigned int p, unsigned int l)const;
-  // Fills the q and w vectors with their values for input positions, starting from l=0
-  void compute(
-      const std::vector<std::vector<float>>& positions,
-      const std::vector<float>& box,
-      std::vector<std::vector<float>>& q,
-      std::vector<std::vector<float>>& w
-  );
+  // Calculates a single averaged q_l_av for one particle p
+  float ql_av(unsigned int p, unsigned int l)const;
+  // Calculates a single averaged w_l_av for one particle p or
+  float wl_av(unsigned int p, unsigned int l)const;
+
+  // Compute the qlm/ql/wl and their averages for all particles, storing
+  // calculated values to avoid unnecessary re-calculations.
+  const std::vector<std::complex<float>>& qlm_all(unsigned int l, int m);
+  std::vector<float> ql_all(unsigned int l);
+  std::vector<float> wl_all(unsigned int l);
+  const std::vector<std::complex<float>>& qlm_av_all(unsigned int l, int m);
+  std::vector<float> ql_av_all(unsigned int l);
+  std::vector<float> wl_av_all(unsigned int l);
 };
 
-
 } // End namespace MSM
-
-
-
-
 
 #endif

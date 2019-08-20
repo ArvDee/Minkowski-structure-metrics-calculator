@@ -60,7 +60,7 @@ namespace MSM {
 
   // Destructor.
   MinkowskiStructureCalculator::~MinkowskiStructureCalculator(void){
-    delete con_;
+    if(con_) delete con_;
   }
 
   // Applies periodic boudary conditions
@@ -260,23 +260,23 @@ namespace MSM {
 
   // Does a number of checks to ensure the Voro++ output is usable
   void MinkowskiStructureCalculator::verify_voro_results(void)const{
-    size_t N = nbs_.size();
+    size_t N = pData_.size();
     // Verify that the number of neighbours equals the number of facets
     for(size_t i = 0; i < N; i++){
-      if(nbs_[i].face_areas.size() != nbs_[i].indices.size()){
+      if(pData_[i].nb_face_areas.size() != pData_[i].nb_indices.size()){
         std::cerr << "Fatal error: Voro++ number of neighbours does not match number of facets!\n";
         exit(42);
       }
     }
     // Verify that Voro neighbours are symmetric (if i nbs j, j nbs i), as they should be
     for(int i = 0; i < int(N); i++){
-      for(int nb_i : nbs_[i].indices){
+      for(int nb_i : pData_[i].nb_indices){
         auto found = std::find(
-          std::begin(nbs_[nb_i].indices),
-          std::end(nbs_[nb_i].indices),
+          std::begin(pData_[nb_i].nb_indices),
+          std::end(pData_[nb_i].nb_indices),
           i
         );
-        if(found == nbs_[i].indices.end()){
+        if(found == pData_[i].nb_indices.end()){
           std::cerr << "Fatal error: Voro++ neighbours are not symmetric!\n";
           exit(42);
         }
@@ -285,22 +285,22 @@ namespace MSM {
     // Verify that the sum of face areas matches the total cell area
     for(size_t i = 0; i < N; i++){
       double total_face_area = 0;
-      for(double area : nbs_[i].face_areas){
+      for(double area : pData_[i].nb_face_areas){
         total_face_area += area;
       }
-      if(fabs(total_face_area - nbs_[i].cell_area) / nbs_[i].cell_area > 1e-5){
+      if(fabs(total_face_area - pData_[i].total_face_area) / pData_[i].total_face_area > 1e-5){
         std::cerr << "Fatal error: Voro++ face area does not match." << '\n';
         std::cerr << "Total area of faces is " << total_face_area;
-        std::cerr << " while cell area is " << nbs_[i].cell_area << '\n';
+        std::cerr << " while cell area is " << pData_[i].total_face_area << '\n';
         exit(42);
       }
     }
     // Verify that Voro neighbours are unique. This can be false for very small systems.
     for(int i = 0; i < int(N); i++){
-      for(size_t idx = 0; idx < nbs_[i].indices.size(); ++idx){
-        int nb = nbs_[i].indices[idx];
-        for(size_t idx_2 = 0; idx_2 < nbs_[i].indices.size(); ++idx_2){
-          int nb_2 = nbs_[i].indices[idx_2];
+      for(size_t idx = 0; idx < pData_[i].nb_indices.size(); ++idx){
+        int nb = pData_[i].nb_indices[idx];
+        for(size_t idx_2 = 0; idx_2 < pData_[i].nb_indices.size(); ++idx_2){
+          int nb_2 = pData_[i].nb_indices[idx_2];
           if(idx != idx_2 && nb == nb_2){
             std::cerr << "Fatal error: Voro++ neighbours are not unique!\n";
             std::cerr << "This can happen for very small systems, but bond order parameters will be wrong.\n";
@@ -313,8 +313,8 @@ namespace MSM {
 		for(size_t i = 0; i < N; i++){
 			// Voro++ sets the particle as its own neighbour if its Voronoi cell
 			// percolates the periodic volume. So we check for that.
-			for(size_t j = 0; j < nbs_[i].indices.size(); j++){
-				if(nbs_[i].indices[j] == int(i)){
+			for(size_t j = 0; j < pData_[i].nb_indices.size(); j++){
+				if(pData_[i].nb_indices[j] == int(i)){
 					std::cerr << "Fatal error: Voro++ cell neighbours itself! Exiting.\n";
 					exit(42);
 				}
@@ -325,11 +325,11 @@ namespace MSM {
   // Checks whether the current system is too small to yield valid Voro++ output
   bool MinkowskiStructureCalculator::is_system_too_small(void)const{
     // Verify that Voro neighbours are unique. This can be false for very small systems.
-    for(int i = 0; i < int(nbs_.size()); i++){
-      for(size_t idx = 0; idx < nbs_[i].indices.size(); ++idx){
-        int nb = nbs_[i].indices[idx];
-        for(size_t idx_2 = 0; idx_2 < nbs_[i].indices.size(); ++idx_2){
-          int nb_2 = nbs_[i].indices[idx_2];
+    for(int i = 0; i < int(pData_.size()); i++){
+      for(size_t idx = 0; idx < pData_[i].nb_indices.size(); ++idx){
+        int nb = pData_[i].nb_indices[idx];
+        for(size_t idx_2 = 0; idx_2 < pData_[i].nb_indices.size(); ++idx_2){
+          int nb_2 = pData_[i].nb_indices[idx_2];
           if(idx != idx_2 && nb == nb_2){
             std::cerr << "Warning: Voro++ neighbours are not unique!\n";
             std::cerr << "If your input system is very small (e.g. a unit cell) ";
@@ -369,7 +369,7 @@ namespace MSM {
   }
 
   // Loads a configuration and calculates the neighbour information using Voro++
-  void MinkowskiStructureCalculator::msm_prepare(
+  void MinkowskiStructureCalculator::load_configuration(
     const std::vector<std::vector<float>>& positions,
     const std::vector<float>& box
   ){
@@ -396,13 +396,13 @@ namespace MSM {
       con_->put(i, positions_[i][0], positions_[i][1], positions_[i][2]);
     }
     // Obtain neighbours from and areas and normals of the facets of the Voronoi cells
-    nbs_.resize( positions_.size() );
+    pData_.resize( positions_.size() );
     voro::c_loop_all_periodic cloop(*con_);
     voro::voronoicell_neighbor c;
     if( cloop.start() ) do if( con_->compute_cell(c,cloop) ){
-      c.neighbors( nbs_[cloop.pid()].indices   );
-      c.face_areas(nbs_[cloop.pid()].face_areas);
-      nbs_[cloop.pid()].cell_area = c.surface_area();
+      c.neighbors( pData_[cloop.pid()].nb_indices   );
+      c.face_areas(pData_[cloop.pid()].nb_face_areas);
+      pData_[cloop.pid()].total_face_area = c.surface_area();
     } while(cloop.inc());
 
     // If the system is too small, Voro++ will yield unusable output in the
@@ -415,7 +415,7 @@ namespace MSM {
         exit(42);
       }
       enlarge_system();
-      nbs_.resize( positions_.size() );
+      pData_.resize( positions_.size() );
       copies++;
       delete con_;
       con_ = new voro::container_periodic(box_(0),
@@ -427,13 +427,13 @@ namespace MSM {
         con_->put(i, positions_[i][0], positions_[i][1], positions_[i][2]);
       }
       // Obtain neighbours from and areas and normals of the facets of the Voronoi cells
-      nbs_.resize( positions_.size() );
+      pData_.resize( positions_.size() );
       voro::c_loop_all_periodic cloop(*con_);
       voro::voronoicell_neighbor c;
       if( cloop.start() ) do if( con_->compute_cell(c,cloop) ){
-        c.neighbors( nbs_[cloop.pid()].indices   );
-        c.face_areas(nbs_[cloop.pid()].face_areas);
-        nbs_[cloop.pid()].cell_area = c.surface_area();
+        c.neighbors( pData_[cloop.pid()].nb_indices   );
+        c.face_areas(pData_[cloop.pid()].nb_face_areas);
+        pData_[cloop.pid()].total_face_area = c.surface_area();
       } while(cloop.inc());
     }
 
@@ -443,8 +443,8 @@ namespace MSM {
     // Create the bond angle vectors
     float dx,dy, dz, theta, phi;
     for(size_t i = 0; i < positions_.size(); i++){
-      // for(size_t j = 0; j < nbs_[i].indices.size(); j++){
-      for(int nb_i : nbs_[i].indices){
+      // for(size_t j = 0; j < pData_[i].nb_indices.size(); j++){
+      for(int nb_i : pData_[i].nb_indices){
         Eigen::Vector3d& pos1 = positions_[i];
         Eigen::Vector3d& pos2 = positions_[nb_i];
         Eigen::Vector3d dr = nearest_image(pos1, pos2, box_);
@@ -452,49 +452,96 @@ namespace MSM {
         dy = dr[1];
         dz = dr[2];
         // theta (polar) [0,pi], phi (azimuthal) [-pi,pi]
-        if(dx == 0.0 && dy == 0.0){ theta = 0.0; } // handle acos(1)
+        if(dx == 0.0 && dy == 0.0){ theta = dz > 0 ? 0 : M_PI; } // handle acos(1)
         else{ theta = acos(dz / sqrt(dx*dx + dy*dy + dz*dz)); }
         phi = atan2(dy,dx);
-        nbs_[i].thetas.push_back(theta);
-        nbs_[i].phis.push_back(phi);
+        pData_[i].thetas.push_back(theta);
+        pData_[i].phis.push_back(phi);
       }
     }
+
+    // Clear any stored qlm data from previously loaded configurations
+    all_qlms_.clear();
   }
 
-  // Calculates q_l for particle p
+  // Calculates a single weighted q_lm for one particle p
+  std::complex<float> MinkowskiStructureCalculator::qlm(unsigned int p_idx, unsigned int l, int m)const{
+    const particleData& p = pData_[p_idx];
+    std::complex<float> qlm(0.0, 0.0);
+		// Loop over the neighbours / facets
+		for(size_t j = 0; j < p.nb_indices.size(); j++){
+			// Calculate the weight factor from the area contribution
+			float area_weight = p.nb_face_areas[j] / p.total_face_area;
+			// Calculate the spherical harmonic
+			std::complex<float> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
+			qlm += area_weight * Ylm;
+		}
+    return qlm;
+	}
+  // Calculates a single weighted averaged q_lm_av for one particle p
+  std::complex<float> MinkowskiStructureCalculator::qlm_av(unsigned int p_idx, unsigned int l, int m)const{
+    const particleData& p = pData_[p_idx];
+    // Average over the neighbours
+    std::complex<float> qlm_av(0.0, 0.0);
+		for(size_t j = 0; j < p.nb_indices.size(); j++){
+      qlm_av += qlm(j, l, m);
+    }
+    // Normalize average by number of neighbours
+    return qlm_av / float(p.nb_indices.size());
+	}
+  // Calculates a single q_l for one particle p
   float MinkowskiStructureCalculator::ql(unsigned int p_idx, unsigned int l)const{
     float sum_m = 0.0;
 		float factor = 4 * M_PI / (2*l + 1);
 		for(int m = -int(l); m <= int(l); m++){
-			std::complex<float> qlm = 0;
-			// Loop over the neighbours / facets
-			for(size_t j = 0; j < nbs_[p_idx].indices.size(); j++){
-				// Calculate the weight factor from the area contribution
-				float area_weight = nbs_[p_idx].face_areas[j] / nbs_[p_idx].cell_area;
-				// Calculate the spherical harmonic
-				std::complex<float> Ylm = spherical_harmonic(l, m, nbs_[p_idx].thetas[j], nbs_[p_idx].phis[j]);
-				qlm += area_weight * Ylm;
-        // if(l==1)printf("%d %d %f %f %f + %fi\n",l,m,nbs_[p_idx].thetas[j],nbs_[p_idx].phis[j],Ylm.real(),Ylm.imag());
-			}
-			sum_m += norm(qlm);
+			sum_m += norm( qlm(p_idx, l, m) );
 		}
 		return sqrt(factor * sum_m);
 	}
-
-  // Calculates w_l for particle p
+  // Calculates a single w_l for one particle p
   float MinkowskiStructureCalculator::wl(unsigned int p_idx, unsigned int l)const{
     // Need the qlms first
     std::complex<float> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
-      qlms[l+m] = 0.0;
-      // Loop over the neighbours / facets
-      for(size_t j = 0; j < nbs_[p_idx].indices.size(); j++){
-        // Calculate the weight factor from the area contribution
-        float area_weight = nbs_[p_idx].face_areas[j] / nbs_[p_idx].cell_area;
-        // Calculate the spherical harmonic
-        std::complex<float> Ylm = spherical_harmonic(l, m, nbs_[p_idx].thetas[j], nbs_[p_idx].phis[j]);
-        qlms[l+m] += area_weight * Ylm;
+      qlms[l+m] = qlm(p_idx, l, m);
+    }
+
+    // Now we can calculate the wl
+    float wl = 0;
+    // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
+    // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
+    for(int m1 = -int(l); m1 <= int(l); m1++){
+      for(int m2 = -int(l); m2 <= int(l); m2++){
+        int m3 = -m1-m2;
+        if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
+        wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
       }
+    }
+    // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
+    float qlms_norm = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      qlms_norm += norm(qlms[l+m]);
+    }
+    qlms_norm = sqrt(qlms_norm * qlms_norm * qlms_norm);
+    // Prevent errors if q's are almost 0 (e.g. for q=1, which should always be 0)
+    if(wl < 1e-6 && qlms_norm < 1e-6){ return 0.0; }
+    return wl / qlms_norm;
+  }
+  // Calculates a single averaged q_l_av for particle p
+  float MinkowskiStructureCalculator::ql_av(unsigned int p_idx, unsigned int l)const{
+    float sum_m = 0.0;
+    float factor = 4 * M_PI / (2*l + 1);
+    for(int m = -int(l); m <= int(l); m++){
+      sum_m += norm( qlm_av(p_idx, l, m) );
+    }
+    return sqrt(factor * sum_m);
+  }
+  // Calculates a single averaged w_l_av for particle p
+  float MinkowskiStructureCalculator::wl_av(unsigned int p_idx, unsigned int l)const{
+    // Need the qlms first
+    std::complex<float> qlms[2 * l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlms[l+m] = qlm_av(p_idx, l, m);
     }
 
     // Now we can calculate the wl
@@ -519,44 +566,131 @@ namespace MSM {
     return wl / qlms_norm;
   }
 
-  // Calculates q_l_av for particle p (q_l averaged over neighbours)
-  // float MinkowskiStructureCalculator::ql_av(unsigned int p_idx, unsigned int l)const{
-  //   // Need the qlms first
-  //   std::complex<float> qlms[2 * l + 1];
-  //   for(int m = -int(l); m <= int(l); m++){
-  //     qlms[l+m] = 0.0;
-  //     // Loop over the neighbours / facets
-  //     for(size_t j = 0; j < nbs_[p_idx].indices.size(); j++){
-  //       // Calculate the weight factor from the area contribution
-  //       float area_weight = nbs_[p_idx].face_areas[j] / nbs_[p_idx].cell_area;
-  //       // Calculate the spherical harmonic
-  //       std::complex<float> Ylm = spherical_harmonic(l, m, nbs_[p_idx].thetas[j], nbs_[p_idx].phis[j]);
-  //       qlms[l+m] += area_weight * Ylm;
-  //     }
-  //   }
-  //   // Now calculate the averaged ql
-  // }
 
-  // Fills the q and w vectors with their values for input positions, starting from l=0
-  void MinkowskiStructureCalculator::compute(
-      const std::vector<std::vector<float>>& positions,
-      const std::vector<float>& box,
-      std::vector<std::vector<float>>& q,
-      std::vector<std::vector<float>>& w
-  ){
-    msm_prepare(positions, box);
-    // Calculate the q's
-    for(size_t i = 0; i < q.size(); i++){
-      for(size_t l = 0; l < q[i].size(); l++){
-        q[i][l] = ql(i,l);
+  // These functions use all_qlms_ and all_qlm_avs_ to make sure we only compute
+  // the qlm / avg qlm for each particle once. This is a significant optimization
+  // when computing the averaged q/w's, or even when computing both q's and w's.
+  const std::vector<std::complex<float>>& MinkowskiStructureCalculator::qlm_all(unsigned int l, int m){
+    // Check if the qlms for this (l,m) pair are known already
+    std::pair<unsigned int, int> lm_key = std::make_pair(l,m);
+    if( all_qlms_[lm_key].empty() ){
+      // If they are not known, calculate and store them
+      std::vector<std::complex<float>> qlms( pData_.size(), std::complex<float>(0.0, 0.0) );
+      for(size_t i = 0; i < pData_.size(); i++){
+        qlms[i] = qlm(i, l, m);
       }
+      all_qlms_[lm_key] = qlms;
     }
-    // Calculate the w's
-    for(size_t i = 0; i < w.size(); i++){
-      for(size_t l = 0; l < w[i].size(); l++){
-        w[i][l] = wl(i,l);
+    return all_qlms_[lm_key];
+	}
+  std::vector<float> MinkowskiStructureCalculator::ql_all(unsigned int l){
+    std::vector<float> qls(pData_.size(), 0.0);
+    float factor = 4 * M_PI / (2*l + 1);
+    for(size_t i = 0; i < pData_.size(); i++){
+      float sum_m = 0.0;
+      for(int m = -int(l); m <= int(l); m++){
+        std::complex<float> qlm = qlm_all(l,m)[i];
+        sum_m += norm(qlm);
       }
+      qls[i] = sqrt(factor * sum_m);
     }
+    return qls;
   }
+  std::vector<float> MinkowskiStructureCalculator::wl_all(unsigned int l){
+    // Get the required qlms in an (l, p_idx) structured array
+    std::vector<std::complex<float>> qlms[2 * l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlms[l+m] = qlm_all(l, m);
+    }
 
+    // Then calculate the wl's
+    std::vector<float> wls(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      float wl = 0.0;
+      // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
+      // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
+      for(int m1 = -int(l); m1 <= int(l); m1++){
+        for(int m2 = -int(l); m2 <= int(l); m2++){
+          int m3 = -m1-m2;
+          if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
+          wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1][i] * qlms[l+m2][i] * qlms[l+m3][i]).real();
+        }
+      }
+      // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
+      float qlms_norm = 0.0;
+      for(int m = -int(l); m <= int(l); m++){
+        qlms_norm += norm(qlms[l+m][i]);
+      }
+      qlms_norm = sqrt(qlms_norm * qlms_norm * qlms_norm);
+      // Prevent errors if q's are almost 0 (e.g. for q=1, which should always be 0)
+      if(wl < 1e-6 && qlms_norm < 1e-6){ wls[i] = 0.0; }
+      else{ wls[i] = wl / qlms_norm; }
+    }
+    return wls;
+  }
+  const std::vector<std::complex<float>>& MinkowskiStructureCalculator::qlm_av_all(unsigned int l, int m){
+    // Check if the averaged qlms for this (l,m) pair are known already
+    std::pair<unsigned int, int> lm_key = std::make_pair(l,m);
+    if( all_qlm_avs_[lm_key].empty() ){
+      // If not, calculate them.
+      // First, make sure all qlms for this (l,m) are available
+      const std::vector<std::complex<float>>& qlms = qlm_all(l,m);
+      // The calculate the averaged qlms
+      std::vector<std::complex<float>> qlm_avs( pData_.size(), std::complex<float>(0.0, 0.0) );
+      for(size_t i = 0; i < pData_.size(); i++){
+        std::complex<float> qlm_av(0.0, 0.0);
+        for(size_t nb_i : pData_[i].nb_indices){
+          qlm_av += qlms[nb_i];
+        }
+        qlm_avs[i] = qlm_av / float(pData_[i].nb_indices.size());
+      }
+      all_qlm_avs_[lm_key] = qlm_avs;
+    }
+    return all_qlm_avs_[lm_key];
+  }
+  std::vector<float> MinkowskiStructureCalculator::ql_av_all(unsigned int l){
+    std::vector<float> ql_avs(pData_.size(), 0.0);
+    float factor = 4 * M_PI / (2*l + 1);
+    for(size_t i = 0; i < pData_.size(); i++){
+      float sum_m = 0.0;
+      for(int m = -int(l); m <= int(l); m++){
+        std::complex<float> qlm_av = qlm_av_all(l,m)[i];
+        sum_m += norm(qlm_av);
+      }
+      ql_avs[i] = sqrt(factor * sum_m);
+    }
+    return ql_avs;
+  }
+  std::vector<float> MinkowskiStructureCalculator::wl_av_all(unsigned int l){
+    // Get the required qlms in an (l, p_idx) structured array
+    std::vector<std::complex<float>> qlm_avs[2 * l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlm_avs[l+m] = qlm_av_all(l, m);
+    }
+
+    // Then calculate the wl's
+    std::vector<float> wl_avs(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      float wl_av = 0.0;
+      // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
+      // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
+      for(int m1 = -int(l); m1 <= int(l); m1++){
+        for(int m2 = -int(l); m2 <= int(l); m2++){
+          int m3 = -m1-m2;
+          if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
+          wl_av += wigner3j(l,m1,m2,m3) * (qlm_avs[l+m1][i] * qlm_avs[l+m2][i] * qlm_avs[l+m3][i]).real();
+        }
+      }
+      // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
+      float qlm_avs_norm = 0.0;
+      for(int m = -int(l); m <= int(l); m++){
+        qlm_avs_norm += norm(qlm_avs[l+m][i]);
+      }
+      qlm_avs_norm = sqrt(qlm_avs_norm * qlm_avs_norm * qlm_avs_norm);
+      // Prevent errors if q's are almost 0 (e.g. for q=1, which should always be 0)
+      if(wl_av < 1e-6 && qlm_avs_norm < 1e-6){ wl_avs[i] = 0.0; }
+      else{ wl_avs[i] = wl_av / qlm_avs_norm; }
+    }
+    return wl_avs;
+  }
 }

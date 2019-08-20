@@ -21,8 +21,8 @@ public:
 
 	void load_snapshot(const std::string init_file_name);
   void calculate_order_parameters(size_t max_l);
-  void save_qw_files(const std::string input_file_name, const std::string optional_file_string);
-  bool file_exists(const std::string& name);
+  void save_qw_files(const std::string input_file_name, const std::string optional_file_string)const;
+  bool file_exists(const std::string& name)const;
 };
 
 #endif // end header guard BOOP_SNAPSHOT_H
