@@ -20,8 +20,7 @@ public:
 	~SnapshotProcessor(void){};
 
 	void load_snapshot(const std::string init_file_name);
-  void calculate_order_parameters_generalBox(const size_t max_l);
-  void calculate_order_parameters_upperTriangularBox(const size_t max_l);
+  void calculate_order_parameters(size_t max_l);
   void save_qw_files(const std::string input_file_name, const std::string optional_file_string);
   bool file_exists(const std::string& name);
 };

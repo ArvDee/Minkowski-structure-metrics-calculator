@@ -13,9 +13,8 @@ int main(int argc, char *argv[]){
   // Create a processor instance that will handle the calculation
   SnapshotProcessor processor;
 
-
+  // Process all input files
   for(int arg = 2; arg < argc; arg++){
-
     // Check whether we have a coordinate text file (.dat, usually) or a GSD binary file (.gsd)
     std::string file_name(argv[arg]);
     // Strip the path from the file name
@@ -48,9 +47,6 @@ int main(int argc, char *argv[]){
       if( !strcmp(frame_str.c_str(),"-") ){ // strcmp returns 0 if string ARE identical, so invert
         for(size_t i = 0; i < n_frames; i++){
           gsd_loader.gsd_load_frame(i);
-          // GSD always has upper triangular boxes
-          // processor.calculate_order_parameters_upperTriangularBox(max_l);
-          processor.calculate_order_parameters_generalBox(max_l);
         }
       }else{
         char* non_nr;
@@ -66,41 +62,23 @@ int main(int argc, char *argv[]){
         }
         // Load the specified frame
         gsd_loader.gsd_load_frame(frame_nr);
-        // GSD always has upper triangular boxes
-        processor.calculate_order_parameters_upperTriangularBox(max_l);
-        // processor.calculate_order_parameters_generalBox(max_l);
       }
       // The specified frame also takes up an argument slot => increment before processing next one
       arg++;
     }else if(extension == "dat"){
       // Load in the snapshot
       processor.load_snapshot(argv[arg]);
-      // Check whether 1st box vec is along x and 2nd in xy
-      if(processor.box[1] != 0 || processor.box[2] != 0 || processor.box[5] != 0){
-        // Voro++ only wants col-major upper triangular, so we need extra steps
-        processor.calculate_order_parameters_generalBox(max_l);
-      }else{
-        // no need for extra steps
-        // processor.calculate_order_parameters_upperTriangularBox(short_file_name, max_l);
-
-        // WARNING The above doesn't yield correct order parameters yet, for some reason.
-        // The below method does.
-        processor.calculate_order_parameters_generalBox(max_l);
-      }
     }else{
       printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
     }
+
+    // Do the calculation
+    processor.calculate_order_parameters(max_l);
+
     // Save the calculated bond order parameters to a file in the same directory as the source
     std::string dir_name = file_name.substr(0, slash_idx+1);
     processor.save_qw_files(dir_name,""); // second argument is an optional string to give the file name
   }
-
-
-
-
-
-
-
-
+  
 	return 1;
 }

@@ -1,15 +1,10 @@
 #include "process.h"
 
-
-/* ------------- Constructor -------------
- *
- */
+// Constructor
 SnapshotProcessor::SnapshotProcessor(void){
 }
 
-/* --------- Initialize from a unit cell / particle configuration file ---------
- *
- */
+// Initialize from a unit cell / particle configuration file
 void SnapshotProcessor::load_snapshot(const std::string init_file_name){
 	// Open initial config file for reading and feed all data to an array of strings
 	std::vector<std::string> text;
@@ -51,67 +46,8 @@ void SnapshotProcessor::load_snapshot(const std::string init_file_name){
   // std::cout << '\n';
 }
 
-/* --------- Calculates the bond order parameters ql and wl ---------
- * Because Voro++ only works with upper triangular box matrices, there are
- * some extra steps.
- */
-void SnapshotProcessor::calculate_order_parameters_generalBox(const size_t max_l){
-  // For all particles, generate copies inside a cube
-  // size_t copies = 5 - std::min( floor(0.5*pow(positions.size(),1.0/3.0)), 4.0);
-  size_t copies = 1;
-  std::vector<std::vector<float>> positions_with_copies = positions;
-  std::vector<float> pos(3), rel_pos(3);
-  for(size_t idx = 0; idx < positions.size(); idx++){
-    // Then make new positions by copying the unit cell
-    for(int i = -((int) copies); i <= ((int) copies); i++){
-      for(int j = -((int) copies); j <= ((int) copies); j++){
-        for(int k = -((int) copies); k <= ((int) copies); k++){
-          if(i==0 && j==0 && k==0){ continue; } // Skip position of particle itself
-          rel_pos[0] = float(i);
-          rel_pos[1] = float(j);
-          rel_pos[2] = float(k);
-          // Create new positions at integer multiples of the box vectors (columns)
-          pos[0] = positions[idx][0] + box[0] * rel_pos[0] + box[1] * rel_pos[1] + box[2] * rel_pos[2];
-          pos[1] = positions[idx][1] + box[3] * rel_pos[0] + box[4] * rel_pos[1] + box[5] * rel_pos[2];
-          pos[2] = positions[idx][2] + box[6] * rel_pos[0] + box[7] * rel_pos[1] + box[8] * rel_pos[2];
-          positions_with_copies.push_back(pos);
-        }
-      }
-    }
-  }
-  std::vector<float> minpos = positions[0];
-  std::vector<float> maxpos = positions[0];
-  // Find the position that will mark the corner of the box with copies
-  for(size_t i = 0; i < positions_with_copies.size(); i++){
-    for(size_t d = 0; d < 3; d++){
-      if(positions_with_copies[i][d] < minpos[d]){ minpos[d] = positions_with_copies[i][d]; }
-      if(positions_with_copies[i][d] > maxpos[d]){ maxpos[d] = positions_with_copies[i][d]; }
-    }
-  }
-  // Offset to put all positions in positive octant
-  for(size_t i = 0; i < positions_with_copies.size(); i++){
-     for(size_t d = 0; d < 3; d++){
-       positions_with_copies[i][d] -= minpos[d];
-     }
-  }
-  // Create a cubic box that can contain all these neighbours
-  std::vector<float> boxm(9, 0.0);
-  for(size_t i = 0; i < 3; i++){
-    boxm[4*i] = maxpos[i]-minpos[i]+1E-10; // offset to prevent edge cases
-  }
-  // Calculate the bond order parameters for only the original particles
-  q = std::vector<std::vector<float>>(positions.size(), std::vector<float>(max_l+1));
-  w = std::vector<std::vector<float>>(positions.size(), std::vector<float>(max_l+1));
-  // MSM::msm(positions_with_copies, boxm, q, w);
-
-  MSM::MinkowskiStructureCalculator msm;
-  msm.compute(positions, box, q, w);
-}
-
-/* --------- Calculates the bond order parameters ql and wl ---------
- *
- */
-void SnapshotProcessor::calculate_order_parameters_upperTriangularBox(const size_t max_l){
+// Calculates the bond order parameters ql and wl
+void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   size_t N = positions.size();
   // Calculate the bond order parameters
   q = std::vector<std::vector<float>>(N, std::vector<float>(max_l+1));
@@ -121,15 +57,16 @@ void SnapshotProcessor::calculate_order_parameters_upperTriangularBox(const size
 }
 
 // Short test function to check whether a certain file already exists
-bool SnapshotProcessor::file_exists(const std::string& name){
+bool SnapshotProcessor::file_exists(const std::string& name)const{
     std::ifstream f(name.c_str());
     return f.good();
 }
 
-/* --------- Creates new files to save the q and w bond order parameters to ---------
- *
- */
-void SnapshotProcessor::save_qw_files(const std::string target_dir, const std::string optional_file_string){
+// Creates new files to save the q and w bond order parameters to
+void SnapshotProcessor::save_qw_files(
+  const std::string target_dir,
+  const std::string optional_file_string
+)const{
   size_t N = positions.size();
   size_t max_l = q[0].size()-1;
   unsigned int idx = 2;
