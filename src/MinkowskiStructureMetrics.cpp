@@ -488,7 +488,7 @@ namespace MSM {
       qlm_av += qlm(j, l, m);
     }
     // Normalize average by number of neighbours
-    return qlm_av / float(p.nb_indices.size());
+    return qlm_av / float(p.nb_indices.size()+1);
 	}
   float MinkowskiStructureCalculator::ql(size_t p_idx, unsigned int l)const{
     float sum_m = 0.0;
