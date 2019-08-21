@@ -464,8 +464,10 @@ namespace MSM {
     all_qlms_.clear();
   }
 
-  // Calculates a single weighted q_lm for one particle p
-  std::complex<float> MinkowskiStructureCalculator::qlm(unsigned int p_idx, unsigned int l, int m)const{
+  // Compute structure metrics for single particles and a single l.
+  // These do not store their results, and should only be used if you
+  // only need their values for a few particles in a larger system.
+  std::complex<float> MinkowskiStructureCalculator::qlm(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
     std::complex<float> qlm(0.0, 0.0);
 		// Loop over the neighbours / facets
@@ -478,19 +480,17 @@ namespace MSM {
 		}
     return qlm;
 	}
-  // Calculates a single weighted averaged q_lm_av for one particle p
-  std::complex<float> MinkowskiStructureCalculator::qlm_av(unsigned int p_idx, unsigned int l, int m)const{
+  std::complex<float> MinkowskiStructureCalculator::qlm_av(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
-    // Average over the neighbours
-    std::complex<float> qlm_av(0.0, 0.0);
+    // Average over the neighbours, including itself
+    std::complex<float> qlm_av = qlm(p_idx, l, m);
 		for(size_t j = 0; j < p.nb_indices.size(); j++){
       qlm_av += qlm(j, l, m);
     }
     // Normalize average by number of neighbours
     return qlm_av / float(p.nb_indices.size());
 	}
-  // Calculates a single q_l for one particle p
-  float MinkowskiStructureCalculator::ql(unsigned int p_idx, unsigned int l)const{
+  float MinkowskiStructureCalculator::ql(size_t p_idx, unsigned int l)const{
     float sum_m = 0.0;
 		float factor = 4 * M_PI / (2*l + 1);
 		for(int m = -int(l); m <= int(l); m++){
@@ -498,8 +498,7 @@ namespace MSM {
 		}
 		return sqrt(factor * sum_m);
 	}
-  // Calculates a single w_l for one particle p
-  float MinkowskiStructureCalculator::wl(unsigned int p_idx, unsigned int l)const{
+  float MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{
     // Need the qlms first
     std::complex<float> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -527,8 +526,7 @@ namespace MSM {
     if(wl < 1e-6 && qlms_norm < 1e-6){ return 0.0; }
     return wl / qlms_norm;
   }
-  // Calculates a single averaged q_l_av for particle p
-  float MinkowskiStructureCalculator::ql_av(unsigned int p_idx, unsigned int l)const{
+  float MinkowskiStructureCalculator::ql_av(size_t p_idx, unsigned int l)const{
     float sum_m = 0.0;
     float factor = 4 * M_PI / (2*l + 1);
     for(int m = -int(l); m <= int(l); m++){
@@ -536,8 +534,7 @@ namespace MSM {
     }
     return sqrt(factor * sum_m);
   }
-  // Calculates a single averaged w_l_av for particle p
-  float MinkowskiStructureCalculator::wl_av(unsigned int p_idx, unsigned int l)const{
+  float MinkowskiStructureCalculator::wl_av(size_t p_idx, unsigned int l)const{
     // Need the qlms first
     std::complex<float> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -693,4 +690,48 @@ namespace MSM {
     }
     return wl_avs;
   }
+
+  // Calculates the dot product of the qlms to define measure of crystallinity
+  float MinkowskiStructureCalculator::bond_crystallinity(size_t i, size_t j, unsigned int l){
+    // Based on Rein ten Wolde et al. (DOI: 10.1063/1.471721)
+    // Get the required qlms in an (l, p_idx) structured array
+    std::complex<float> qlms_i[2 * l + 1], qlms_j[2 * l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlms_i[l+m] = qlm_all(l, m)[i];
+      qlms_j[l+m] = qlm_all(l, m)[j];
+    }
+    // Calculate the norms
+    float norm_i = 0.0, norm_j = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      norm_i += norm(qlms_i[l+m]);
+      norm_j += norm(qlms_j[l+m]);
+    }
+    norm_i = sqrt(norm_i);
+    norm_j = sqrt(norm_j);
+    // Calculate the dot product
+    std::complex<float> dot = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      // Prevent precision errors if qlm's are almost 0 (e.g. for q=1, which should always be 0)
+      if( !(abs(qlms_i[l+m]) < 1e-6 && abs(norm_i) < 1e-6) ){
+        dot += (qlms_i[l+m] / norm_i) * conj(qlms_j[l+m] / norm_j);
+      }
+    }
+    // Result should be real
+    if(dot.imag() > 1e-6){
+      std::cerr << "Error: dot product of complex qlms has nonzero imaginary part.\n";
+    }
+    return dot.real();
+  }
+
+  // As above, but averages over all input l
+  float MinkowskiStructureCalculator::bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l){
+    // Extension of Rein ten Wolde et al. (DOI: 10.1063/1.471721)
+    float dot_av = 0.0;
+    for(unsigned int l : all_l){
+      dot_av += bond_crystallinity(i, j, l);
+    }
+    return dot_av / float(all_l.size());
+  }
+
+
 }

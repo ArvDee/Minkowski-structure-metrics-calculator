@@ -86,17 +86,17 @@ public:
   );
 
   // Calculates a single weighted q_lm for one particle p
-  std::complex<float> qlm(unsigned int p, unsigned int l, int m)const;
+  std::complex<float> qlm(size_t p_idx, unsigned int l, int m)const;
   // Calculates a single weighted averaged q_lm_av for one particle p
-  std::complex<float> qlm_av(unsigned int p, unsigned int l, int m)const;
+  std::complex<float> qlm_av(size_t p_idx, unsigned int l, int m)const;
   // Calculates a single q_l for one particle p
-  float ql(unsigned int p, unsigned int l)const;
+  float ql(size_t p_idx, unsigned int l)const;
   // Calculates a single w_l for one particle p
-  float wl(unsigned int p, unsigned int l)const;
+  float wl(size_t p_idx, unsigned int l)const;
   // Calculates a single averaged q_l_av for one particle p
-  float ql_av(unsigned int p, unsigned int l)const;
+  float ql_av(size_t p_idx, unsigned int l)const;
   // Calculates a single averaged w_l_av for one particle p or
-  float wl_av(unsigned int p, unsigned int l)const;
+  float wl_av(size_t p_idx, unsigned int l)const;
 
   // Compute the qlm/ql/wl and their averages for all particles, storing
   // calculated values to avoid unnecessary re-calculations.
@@ -106,6 +106,9 @@ public:
   const std::vector<std::complex<float>>& qlm_av_all(unsigned int l, int m);
   std::vector<float> ql_av_all(unsigned int l);
   std::vector<float> wl_av_all(unsigned int l);
+
+  float bond_crystallinity(size_t i, size_t j, unsigned int l);
+  float bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
 };
 
 } // End namespace MSM

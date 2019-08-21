@@ -55,9 +55,19 @@ void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   q = std::vector<std::vector<float>>(max_l+1, std::vector<float>(N));
   w = std::vector<std::vector<float>>(max_l+1, std::vector<float>(N));
   for(size_t l = 0; l <= max_l; l++){
-    q[l] = msm.ql_all(l);
-    w[l] = msm.wl_all(l);
+    q[l] = msm.ql_av_all(l);
+    w[l] = msm.wl_av_all(l);
   }
+
+  // test
+  // float dot = msm.bond_crystallinity(0, 1, 6);
+  // std::cout << dot << '\n';
+  // std::vector<unsigned int> all_l(max_l-1); // leave out l=0 and l=1
+  // for(unsigned int i = 0, l = 2; l < max_l; i++, l++){
+  //   all_l[i] = l;
+  // }
+  // float dot_av = msm.bond_crystallinity_lav(0, 1, all_l);
+  // std::cout << dot_av << '\n';
 }
 
 // Short test function to check whether a certain file already exists
@@ -74,13 +84,13 @@ void SnapshotProcessor::save_qw_files(
   size_t N = positions.size();
   size_t max_l = q.size()-1;
   unsigned int idx = 2;
-  std::string q_file_name = target_dir + "q" + optional_file_string + ".txt";
-  std::string w_file_name = target_dir + "w" + optional_file_string + ".txt";
+  std::string q_file_name = target_dir + "q_av" + optional_file_string + ".txt";
+  std::string w_file_name = target_dir + "w_av" + optional_file_string + ".txt";
   // Check if the file name we want already exists
   while( file_exists(q_file_name) || file_exists(w_file_name) ){
     std::string extra_name = "_" + std::to_string(idx);
-    q_file_name = target_dir + "q" + optional_file_string + extra_name + ".txt";
-    w_file_name = target_dir + "w" + optional_file_string + extra_name + ".txt";
+    q_file_name = target_dir + "q_av" + optional_file_string + extra_name + ".txt";
+    w_file_name = target_dir + "w_av" + optional_file_string + extra_name + ".txt";
     idx++;
   }
   std::ofstream file;
