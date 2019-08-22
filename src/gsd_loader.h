@@ -139,9 +139,9 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
   }
 	float* bx = reinterpret_cast<float*>(raw_data_);
   float Lx=bx[0], Ly=bx[1], Lz=bx[2], xy=bx[3], xz=bx[4], yz=bx[5];
-  *a1_ = {Lx, xy*Ly, xz*Lz};
-  *a2_ = {0,  Ly,    yz*Lz};
-  *a3_ = {0,  0,     Lz};
+  *a1_ = {Lx,    0,     0};
+  *a2_ = {xy*Ly, Ly,    0};
+  *a3_ = {xz*Lz, yz*Lz, Lz};
 
   // Positions, offset by the center of the box due to different origin convention
   if( gsd_load_chunk(frame, "particles/position") == NULL){

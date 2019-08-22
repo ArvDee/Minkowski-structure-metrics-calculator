@@ -502,9 +502,10 @@ namespace MSM {
         dy = dr[1];
         dz = dr[2];
         // theta (polar) [0,pi], phi (azimuthal) [-pi,pi]
-        if(dx == 0.0 && dy == 0.0){ theta = dz > 0 ? 0 : M_PI; } // handle acos(1)
+        if(fabs(dx) < 1e-6 && fabs(dy) < 1e-6){ theta = dz > 0.0 ? 0 : M_PI; } // handle acos(1)
         else{ theta = acos(dz / sqrt(dx*dx + dy*dy + dz*dz)); }
         phi = atan2(dy,dx);
+        // printf("%f %f %f %f %f\n",dx,dy,dz,theta,phi);
         pData_[i].thetas.push_back(theta);
         pData_[i].phis.push_back(phi);
       }

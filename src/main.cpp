@@ -50,7 +50,10 @@ int main(int argc, char *argv[]){
           std::string i_str = std::to_string(i);
           gsd_loader.gsd_load_frame(i);
           processor.calculate_order_parameters(max_l);
-          processor.save_qw_files(dir_name, "q"+i_str+".txt", "w"+i_str+".txt");
+          processor.save_boops(dir_name, "q"+i_str, processor.q);
+          processor.save_boops(dir_name, "w"+i_str, processor.w);
+          processor.save_boops(dir_name, "avq"+i_str, processor.q_av);
+          processor.save_boops(dir_name, "avw"+i_str, processor.w_av);
         }
       }else{
         char* non_nr;
@@ -67,7 +70,10 @@ int main(int argc, char *argv[]){
         // Load the specified frame
         gsd_loader.gsd_load_frame(frame_nr);
         processor.calculate_order_parameters(max_l);
-        processor.save_qw_files(dir_name, "q_av.txt", "w_av.txt");
+        processor.save_boops(dir_name, "q", processor.q);
+        processor.save_boops(dir_name, "w", processor.w);
+        processor.save_boops(dir_name, "avq", processor.q_av);
+        processor.save_boops(dir_name, "avw", processor.w_av);
       }
       // The specified frame also takes up an argument slot => increment before processing next one
       arg++;
@@ -75,11 +81,15 @@ int main(int argc, char *argv[]){
       // Load in the snapshot
       processor.load_snapshot(argv[arg]);
       processor.calculate_order_parameters(max_l);
-      processor.save_qw_files(dir_name, "q_av.txt", "w_av.txt");
+      processor.save_boops(dir_name, "q", processor.q);
+      processor.save_boops(dir_name, "w", processor.w);
+      processor.save_boops(dir_name, "avq", processor.q_av);
+      processor.save_boops(dir_name, "avw", processor.w_av);
     }else{
       printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
     }
   }
+  printf("\n");
 
 	return 1;
 }
