@@ -1,6 +1,6 @@
 A small C++ code that can read in configurations of 3D particle coordinates and calculate the corresponding Minkowski structure metrics (MSM).
 
-These metrics, defined in Ref. \[1\][1], describe the symmetry of where a particle's neighbours are located around it. They are a variant of the Steinhardt bond order parameters [2][2] in which the neighbours are defined through a Voronoi construction. This provides a parameter-free way of defining the neighbours. Additionally, the contribution of each bond is weighted by the area of the shared Voronoi facet, which ensures that nearby bonds contribute more, while distant bonds contribute less. Furthermore, this weighting makes sure that the MSM change smoothly with bond distance, instead of discontinuously like with a fixed cutoff or a fixed number of neighbours.
+These metrics, defined in Ref. [1](#Mickel2013), describe the symmetry of where a particle's neighbours are located around it. They are a variant of the Steinhardt bond order parameters [2][2] in which the neighbours are defined through a Voronoi construction. This provides a parameter-free way of defining the neighbours. Additionally, the contribution of each bond is weighted by the area of the shared Voronoi facet, which ensures that nearby bonds contribute more, while distant bonds contribute less. Furthermore, this weighting makes sure that the MSM change smoothly with bond distance, instead of discontinuously like with a fixed cutoff or a fixed number of neighbours.
 
 Currently, the code calculates:
 
@@ -23,8 +23,8 @@ where `N` is the number of particles, `a1`, `a2` and `a3` are the lattice vector
 
 GSD files should be supplied as-is and should require no tweaking.
 
-[1]: [Mickel et al., J. Chem. Phys. 2013](scitation.aip.org/content/aip/journal/jcp/138/4/10.1063/1.4774084)
+<a name="Mickel2013">1</a>:  [Mickel et al., J. Chem. Phys. 2013](scitation.aip.org/content/aip/journal/jcp/138/4/10.1063/1.4774084)
 
 [2]: [Steinhardt et al., Phys. Rev. B 1983](https://journals.aps.org/prb/abstract/10.1103/PhysRevB.28.784)
 
-[3]: [https://gsd.readthedocs.io/]
+[3]: https://gsd.readthedocs.io/
