@@ -4,30 +4,12 @@ These metrics, defined in Ref. [1][1], describe the symmetry of where a particle
 
 Currently, the code calculates:
 
-
 * q<sub>lm</sub>
-
-![qlm](https://latex.codecogs.com/png.latex?q_{lm}(i)&space;=&space;\sum_{f\in\mathcal{F}(i)}&space;\frac{A(f)}{A}&space;Y_{lm}(\mathbf{r}_{ij}))
-
 * averaged q<sub>lm</sub>
-
-![avqlm](https://latex.codecogs.com/png.latex?\bar{q}_{lm}(i)&space;=&space;\frac{1}{\tilde{N}_b(i)}&space;\sum_{k=0}^{\tilde{N}_b(i)}&space;q_{lm}(k))
-
 * q<sub>l</sub>
-
-![ql](https://latex.codecogs.com/png.latex?q_{lm}(i)&space;=&space;\frac{1}{N_b(i)}\sum_{j=0}^{N_b(i)}&space;Y_{lm}(\mathbf{r}_{ij}))
-
 * w<sub>l</sub>
-
-![wl](https://latex.codecogs.com/png.latex?w_l(i)&space;=&space;\sum_{m_1&plus;m_2&plus;m_3=0}&space;\begin{pmatrix}&space;l&space;&&space;l&space;&&space;l&space;\\&space;m_1&space;&&space;m_2&space;&&space;m_3&space;\end{pmatrix}&space;q_{lm_1}(i)&space;q_{lm_2}(i)&space;q_{lm_3}(i))
-
 * averaged q<sub>l</sub>
-
-![avql](https://latex.codecogs.com/png.latex?\bar{q}_l(i)=\sqrt{\frac{4\pi}{2l&plus;1}\sum_{m=-l}^l&space;\left|&space;\bar{q}_{lm}(i)&space;\right|^2})
-
 * averaged w<sub>l</sub>
-
-![avwl](https://latex.codecogs.com/png.latex?\bar{w}_l(i)&space;=&space;\sum_{m_1&plus;m_2&plus;m_3=0}&space;\begin{pmatrix}&space;l&space;&&space;l&space;&&space;l&space;\\&space;m_1&space;&&space;m_2&space;&&space;m_3&space;\end{pmatrix}&space;\bar{q}_{lm_1}(i)&space;\bar{q}_{lm_2}(i)&space;\bar{q}_{lm_3}(i))
 
 This code currently supports reading in both text coordinate files (with extension ".dat") and the Glotzerlab general simulation data format (".gsd"/".GSD") [3][3]. The format of the text files should be:
 
