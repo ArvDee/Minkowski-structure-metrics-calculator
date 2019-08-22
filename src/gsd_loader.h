@@ -16,7 +16,9 @@
 class GSD_Loader {
 private:
   // Variables to load data into
-  std::vector<float> *box_;
+  std::vector<float> *a1_; // lattice vectors
+  std::vector<float> *a2_;
+  std::vector<float> *a3_;
   std::vector<std::vector<float>> *positions_;
   // GSD file variables
   gsd_handle handle_;
@@ -30,7 +32,12 @@ public:
   virtual ~GSD_Loader();
   size_t n_frames(void){ return n_frames_; }
   // Function to set the arrays to load data into
-  void set_data_pointers(std::vector<float> *box, std::vector<std::vector<float>> *positions);
+  void set_data_pointers(
+    std::vector<float> *a1,
+    std::vector<float> *a2,
+    std::vector<float> *a3,
+    std::vector<std::vector<float>> *positions
+  );
   // Opens a GSD file, sets handle_, and n_frames_
   void open_gsd_file(const char *gsd_file_name);
   // Attempt to load a data chunk with a specific name, sets chunk_, chunk_size_ and raw_data
@@ -51,10 +58,14 @@ inline GSD_Loader::~GSD_Loader(void){
 
 // Sets the pointers to the data arrays where the box and position data should go
 inline void GSD_Loader::set_data_pointers(
-  std::vector<float> *box,
+  std::vector<float> *a1,
+  std::vector<float> *a2,
+  std::vector<float> *a3,
   std::vector<std::vector<float>> *positions
 ){
-  box_ = box;
+  a1_ = a1;
+  a2_ = a2;
+  a3_ = a3;
   positions_ = positions;
 }
 
@@ -109,6 +120,9 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
     printf("Loading frame %lu/%lu.\n",frame, n_frames_-1);
   }
 
+  // Clear any data from previous loads
+  positions_->clear();
+
   // Load number of particles
   if(gsd_load_chunk(frame, "particles/N") == NULL){
     printf("Fatal error: could not find 'particles/N' chunk.\n");
@@ -124,7 +138,10 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
     exit(42);
   }
 	float* bx = reinterpret_cast<float*>(raw_data_);
-	*box_ = {bx[0], 0, 0, bx[1]*bx[3], bx[1], 0, bx[2]*bx[4], bx[2]*bx[5], bx[2]};
+  float Lx=bx[0], Ly=bx[1], Lz=bx[2], xy=bx[3], xz=bx[4], yz=bx[5];
+  *a1_ = {Lx, xy*Ly, xz*Lz};
+  *a2_ = {0,  Ly,    yz*Lz};
+  *a3_ = {0,  0,     Lz};
 
   // Positions, offset by the center of the box due to different origin convention
   if( gsd_load_chunk(frame, "particles/position") == NULL){

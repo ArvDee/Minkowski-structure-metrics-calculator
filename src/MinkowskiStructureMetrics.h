@@ -52,6 +52,8 @@ private:
     const Eigen::Vector3d& pos2,
     const Eigen::Matrix3d& box
   )const;
+  // Rotates the configuration so that its box matrix is upper triangular
+  void rotate_box_to_uppertriangular(void);
   // Calculates the associated Legendre polynomial P_l^m(x)
   float LegendrePlm_m_gtr_0(int l, int m, float x)const;
   // Unit test for the LegendrePlm_m_gtr_0 function
@@ -82,7 +84,9 @@ public:
   // Loads in a configuration and prepares everything for ql / wl calculation
   void load_configuration(
     const std::vector<std::vector<float>>& positions,
-    const std::vector<float>& box
+    const std::vector<float>& a1,
+    const std::vector<float>& a2,
+    const std::vector<float>& a3
   );
 
   // Calculates a single weighted q_lm for one particle p

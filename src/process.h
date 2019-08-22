@@ -7,22 +7,25 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <eigen3/Eigen/Geometry>
 #include "MinkowskiStructureMetrics.h"
 
 class SnapshotProcessor{
 private:
 public:
-  std::vector<float> box = std::vector<float>(9); // Simulation volume
-  std::vector<std::vector<float>> positions;       // Positions of particles in box
+  std::vector<float> a1 = std::vector<float>(3); // Lattice vectors
+  std::vector<float> a2 = std::vector<float>(3);
+  std::vector<float> a3 = std::vector<float>(3);
+  std::vector<std::vector<float>> positions; // Positions of particles in box
   std::vector<std::vector<float>> q;
   std::vector<std::vector<float>> w;
-	SnapshotProcessor(void);
-	~SnapshotProcessor(void){};
+	SnapshotProcessor(void){};
+	virtual ~SnapshotProcessor(void){};
 
-	void load_snapshot(const std::string init_file_name);
+	void load_snapshot(const std::string file_name);
   void calculate_order_parameters(size_t max_l);
-  void save_qw_files(const std::string input_file_name, const std::string optional_file_string)const;
   bool file_exists(const std::string& name)const;
+  void save_qw_files(const std::string target_dir, const std::string q_file_name, const std::string w_file_name)const;
 };
 
 #endif // end header guard BOOP_SNAPSHOT_H

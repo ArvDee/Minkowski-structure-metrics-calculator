@@ -88,6 +88,53 @@ namespace MSM {
   	return nearvec;
   }
 
+  // Rotates the configuration so that its box matrix is upper triangular
+  void MinkowskiStructureCalculator::rotate_box_to_uppertriangular(void){
+    Eigen::Vector3d a1 = box_.col(0), a2 = box_.col(1), a3 = box_.col(2);
+    Eigen::Vector3d xhat, yhat, zhat;
+    xhat << 1.0, 0.0, 0.0;
+    yhat << 0.0, 1.0, 0.0;
+    zhat << 0.0, 0.0, 1.0;
+
+    // Find quaternion to rotate first lattice vector to x axis
+    double a1mag = a1.norm();
+    Eigen::Vector3d u1, v1 = a1 / a1mag + xhat;
+    double v1mag = v1.norm();
+    if(v1mag > 1e-6){
+      u1 = v1 / v1mag;
+    }else{
+      u1 = yhat;
+    }
+    Eigen::Quaterniond q1(cos(M_PI/2.0), u1[0]*sin(M_PI/2.0), u1[1]*sin(M_PI/2.0), u1[2]*sin(M_PI/2.0));
+
+    // Find quaternion to rotate second lattice vector to xy plane after applying above rotation
+    Eigen::Vector3d a2prime = q1 * a2;
+    double angle = -1.0 * atan2(a2prime[2], a2prime[1]);
+    Eigen::Quaterniond q2(cos(angle/2.0), xhat[0]*sin(angle/2.0), xhat[1]*sin(angle/2.0), xhat[2]*sin(angle/2.0));
+
+    // Calculate the new box
+    double Lx = a1.norm();
+    double a2x = a1.dot(a2) / Lx;
+    double Ly = sqrt(a2.dot(a2) - a2x*a2x);
+    double xy = a2x / Ly;
+    Eigen::Vector3d v0xv1 = a1.cross(a2);
+    double v0xv1mag = v0xv1.norm();
+    double Lz = a3.dot(v0xv1) / v0xv1mag;
+    double a3x = a1.dot(a3) / Lx;
+    double xz = a3x / Lz;
+    double yz = (a2.dot(a3) - a2x*a3x) / (Ly*Lz);
+
+    box_ << Lx, xy*Ly, xz*Lz,
+            0,  Ly,    yz*Lz,
+            0,  0,     Lz;
+
+    // This quaternion should rotate all positions into the new box
+    Eigen::Quaterniond q = q2 * q1;
+    for(size_t i = 0; i < positions_.size(); i++){
+      positions_[i] = q * positions_[i];
+    }
+  }
+
 	// Calculates the associated Legendre polynomial P_l^m(x) for positive m
 	float MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, float x)const{
 		// Code copied from Michiel Hermes' bond order code. Thanks Michiel!
@@ -371,28 +418,31 @@ namespace MSM {
   // Loads a configuration and calculates the neighbour information using Voro++
   void MinkowskiStructureCalculator::load_configuration(
     const std::vector<std::vector<float>>& positions,
-    const std::vector<float>& box
+    const std::vector<float>& a1,
+    const std::vector<float>& a2,
+    const std::vector<float>& a3
   ){
     // Store the lattice vectors a1, a2, a3 in the columns of a box matrix
-    box_ << box[0], box[3], box[6],
-            box[1], box[4], box[7],
-            box[2], box[5], box[8];
-    // Voro++ needs a1 to be along +x, a2 along +xy and a3 in the +xyz octant.
-    // TODO: write code to allow other boxes too by rotating them.
-    if(box_(1) != 0 || box_(2) != 0 || box_(5) != 0){
-      std::cerr << "MSM Error: Input box is not row-major upper triangular, which is required! Exiting.\n";
-      exit(42);
-    }
-    // Create a Voro++ box that will handle the Voronoi construction
-    con_ = new voro::container_periodic(box_(0),
-																        box_(3), box_(4),
-																        box_(6), box_(7), box_(8),
-																        1, 1, 1,
-																        8);
-    // Copy the input positions to the internal storage and pass them to Voro++
+    box_ << a1[0], a2[0], a3[0],
+            a1[1], a2[1], a3[1],
+            a1[2], a2[2], a3[2];
+    // Copy the input positions to the internal storage
     positions_.resize( positions.size() );
     for(size_t i = 0; i < positions_.size(); i++){
       positions_[i] << positions[i][0], positions[i][1], positions[i][2];
+    }
+    // Voro++ needs a1 to be along +x and a2 along +xy, so rotate if that's not the case
+    if(a1[1] != 0 || a1[2] != 0 || a2[2] != 0){
+      rotate_box_to_uppertriangular();
+    }
+    // Create a Voro++ box that will handle the Voronoi construction
+    con_ = new voro::container_periodic(box_(0),
+                                        box_(3), box_(4),
+                                        box_(6), box_(7), box_(8),
+                                        1, 1, 1,
+                                        8);
+    // Pass positions to Voro++
+    for(size_t i = 0; i < positions_.size(); i++){
       con_->put(i, positions_[i][0], positions_[i][1], positions_[i][2]);
     }
     // Obtain neighbours from and areas and normals of the facets of the Voronoi cells
@@ -632,14 +682,14 @@ namespace MSM {
       // If not, calculate them.
       // First, make sure all qlms for this (l,m) are available
       const std::vector<std::complex<float>>& qlms = qlm_all(l,m);
-      // The calculate the averaged qlms
+      // The compute qlm_av by averaging over neighbours plus itself
       std::vector<std::complex<float>> qlm_avs( pData_.size(), std::complex<float>(0.0, 0.0) );
       for(size_t i = 0; i < pData_.size(); i++){
-        std::complex<float> qlm_av(0.0, 0.0);
+        std::complex<float> qlm_av = qlms[i];
         for(size_t nb_i : pData_[i].nb_indices){
           qlm_av += qlms[nb_i];
         }
-        qlm_avs[i] = qlm_av / float(pData_[i].nb_indices.size());
+        qlm_avs[i] = qlm_av / float(pData_[i].nb_indices.size()+1);
       }
       all_qlm_avs_[lm_key] = qlm_avs;
     }

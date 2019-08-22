@@ -19,6 +19,7 @@ int main(int argc, char *argv[]){
     std::string file_name(argv[arg]);
     // Strip the path from the file name
     std::string::size_type slash_idx = file_name.rfind('/');
+    std::string dir_name = file_name.substr(0, slash_idx+1);
     std::string short_file_name = file_name.substr(slash_idx+1, file_name.length());
     // Find the last dot in the file name
     std::string extension;
@@ -36,7 +37,7 @@ int main(int argc, char *argv[]){
       // Create a GSD loader object that will handle the loading
       GSD_Loader gsd_loader;
       // Give the gsd loader pointers to where it should store the loaded data
-    	gsd_loader.set_data_pointers(&processor.box, &processor.positions);
+    	gsd_loader.set_data_pointers(&processor.a1, &processor.a2, &processor.a3, &processor.positions);
       // Open the file
       gsd_loader.open_gsd_file(file_name.c_str());
       size_t n_frames = gsd_loader.n_frames();
@@ -46,7 +47,10 @@ int main(int argc, char *argv[]){
       if(arg+1 < argc) frame_str = std::string(argv[arg+1]);
       if( !strcmp(frame_str.c_str(),"-") ){ // strcmp returns 0 if string ARE identical, so invert
         for(size_t i = 0; i < n_frames; i++){
+          std::string i_str = std::to_string(i);
           gsd_loader.gsd_load_frame(i);
+          processor.calculate_order_parameters(max_l);
+          processor.save_qw_files(dir_name, "q"+i_str+".txt", "w"+i_str+".txt");
         }
       }else{
         char* non_nr;
@@ -62,23 +66,20 @@ int main(int argc, char *argv[]){
         }
         // Load the specified frame
         gsd_loader.gsd_load_frame(frame_nr);
+        processor.calculate_order_parameters(max_l);
+        processor.save_qw_files(dir_name, "q_av.txt", "w_av.txt");
       }
       // The specified frame also takes up an argument slot => increment before processing next one
       arg++;
     }else if(extension == "dat"){
       // Load in the snapshot
       processor.load_snapshot(argv[arg]);
+      processor.calculate_order_parameters(max_l);
+      processor.save_qw_files(dir_name, "q_av.txt", "w_av.txt");
     }else{
       printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
     }
-
-    // Do the calculation
-    processor.calculate_order_parameters(max_l);
-
-    // Save the calculated bond order parameters to a file in the same directory as the source
-    std::string dir_name = file_name.substr(0, slash_idx+1);
-    processor.save_qw_files(dir_name,""); // second argument is an optional string to give the file name
   }
-  
+
 	return 1;
 }
