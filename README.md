@@ -15,7 +15,20 @@ Currently, the code calculates:
 
 ## Compilation
 
-todo
+Before you can compile this code, you will need:
+* [CMake](https://cmake.org/) to build the compilation instructions
+* The C++ [Eigen](http://eigen.tuxfamily.org/) library
+* The C++ [Voro++](http://math.lbl.gov/voro++/) library
+
+Once you have all these, the code should be compilable.
+
+#### Linux
+
+Navigate to `BOOP_per_snapshot/bin` and type `cmake ..; make`. The code should build.
+
+#### Windows / Mac
+
+TODO. Haven't figured this out yet.
 
 ## Usage
 
