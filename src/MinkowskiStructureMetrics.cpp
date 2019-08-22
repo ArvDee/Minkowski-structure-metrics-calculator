@@ -2,12 +2,12 @@
 
 /******************************************************************************
   These files define a class for calculating the Minkowski structure
-	metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
-	bond orientational order parameters for the analysis of disordered
-	particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
-	characterize the structure of a set of points in three dimensions in
-	terms of a number of order parameters {q'} that are closely related to
-	the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
+  metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
+  bond orientational order parameters for the analysis of disordered
+  particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
+  characterize the structure of a set of points in three dimensions in
+  terms of a number of order parameters {q'} that are closely related to
+  the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
 ******************************************************************************/
 
 // Empty namespace to locally define some unit test functions
@@ -69,23 +69,23 @@ namespace MSM {
     const Eigen::Vector3d& pos2,
     const Eigen::Matrix3d& box
   )const{
-  	// Positions in relative coordinates
-  	Eigen::Vector3d rpos1 = box.inverse() * pos1;
-  	Eigen::Vector3d rpos2 = box.inverse() * pos2;
+    // Positions in relative coordinates
+    Eigen::Vector3d rpos1 = box.inverse() * pos1;
+    Eigen::Vector3d rpos2 = box.inverse() * pos2;
     // printf("%f %f %f\n",rpos1[0],rpos1[1],rpos1[2]);
     // printf("%f %f %f\n",rpos2[0],rpos2[1],rpos2[2]);
-  	// Relative non-periodic distance vector
-  	Eigen::Vector3d r12 = rpos2 - rpos1;
-  	// Absolute distance vector, to be updated in the next few lines
-  	Eigen::Vector3d nearvec = pos2 - pos1;
-  	// Check each cardinal direction for distance > box length, then correct nearvec accordingly
-  	for(size_t d = 0; d < 3; d++){
-  		if(     r12[d] > +0.5){r12[d] -= 1.0; nearvec -= box.col(d);}
-  		else if(r12[d] < -0.5){r12[d] += 1.0; nearvec += box.col(d);}
-  	}
+    // Relative non-periodic distance vector
+    Eigen::Vector3d r12 = rpos2 - rpos1;
+    // Absolute distance vector, to be updated in the next few lines
+    Eigen::Vector3d nearvec = pos2 - pos1;
+    // Check each cardinal direction for distance > box length, then correct nearvec accordingly
+    for(size_t d = 0; d < 3; d++){
+      if(     r12[d] > +0.5){r12[d] -= 1.0; nearvec -= box.col(d);}
+      else if(r12[d] < -0.5){r12[d] += 1.0; nearvec += box.col(d);}
+    }
     // printf("%f %f %f\n",r12[0],r12[1],r12[2]);
-  	// Return what is now the nearest image vector
-  	return nearvec;
+    // Return what is now the nearest image vector
+    return nearvec;
   }
 
   // Rotates the configuration so that its box matrix is upper triangular
@@ -135,38 +135,38 @@ namespace MSM {
     }
   }
 
-	// Calculates the associated Legendre polynomial P_l^m(x) for positive m
-	float MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, float x)const{
-		// Code copied from Michiel Hermes' bond order code. Thanks Michiel!
-	  float fact,pll=0.0,pmm,pmmp1,somx2;
-	  int i,ll;
-	  if (m < 0 || m > l || fabs(x) > 1.0)
-	    printf("Bad arguments in MSM:LegendrePlm %i %i %f\n",l,m,fabs(x));
-	  pmm=1.0;
-	  if (m > 0) {
-	    somx2=sqrt((1.0-x)*(1.0+x));
-	    fact=1.0;
-	    for (i=1;i<=m;i++) {
-	      pmm *= -fact*somx2;
-	      fact += 2.0;
-	    }
-	  }
-	  if (l == m)
-	    return pmm;
-	  else {
-	    pmmp1=x*(2*m+1)*pmm;
-	    if (l == (m+1))
-	      return pmmp1;
-	    else {
-	      for (ll=m+2;ll<=l;ll++) {
-	        pll=(x*(2*ll-1)*pmmp1-(ll+m-1)*pmm)/(ll-m);
-	        pmm=pmmp1;
-	        pmmp1=pll;
-	      }
-	      return pll;
-	    }
-	  }
-	}
+  // Calculates the associated Legendre polynomial P_l^m(x) for positive m
+  float MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, float x)const{
+    // Code copied from Michiel Hermes' bond order code. Thanks Michiel!
+    float fact,pll=0.0,pmm,pmmp1,somx2;
+    int i,ll;
+    if (m < 0 || m > l || fabs(x) > 1.0)
+      printf("Bad arguments in MSM:LegendrePlm %i %i %f\n",l,m,fabs(x));
+    pmm=1.0;
+    if (m > 0) {
+      somx2=sqrt((1.0-x)*(1.0+x));
+      fact=1.0;
+      for (i=1;i<=m;i++) {
+        pmm *= -fact*somx2;
+        fact += 2.0;
+      }
+    }
+    if (l == m)
+      return pmm;
+    else {
+      pmmp1=x*(2*m+1)*pmm;
+      if (l == (m+1))
+        return pmmp1;
+      else {
+        for (ll=m+2;ll<=l;ll++) {
+          pll=(x*(2*ll-1)*pmmp1-(ll+m-1)*pmm)/(ll-m);
+          pmm=pmmp1;
+          pmmp1=pll;
+        }
+        return pll;
+      }
+    }
+  }
   // Unit test for the LegendrePlm_m_gtr_0 function
   void MinkowskiStructureCalculator::verify_LegendreP(void)const{
     float tolerance = 1e-6;
@@ -237,50 +237,50 @@ namespace MSM {
     verifySimilarity(test_4, ref_4, tolerance, "unit test verify_wigner3j");
   }
 
-	// Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
-	float MinkowskiStructureCalculator::spherical_harmonic_factor(unsigned int l, int m)const{
-		// We tabulate the constant prefactors for efficiency
-		static std::vector<std::vector<float>> factor_table;
-		if( l+1 > factor_table.size() ){ // data for l hasn't been generated yet
-			for(size_t l_idx = 0; l_idx <= l; l_idx++){ // so generate prefactors up to l
-				if( l_idx+1 > factor_table.size() ){ // only generate data that hasn't been generated already
-					// std::cout << "l = " << l_idx << '\n';
-					factor_table.resize(l_idx+1);
-					factor_table[l_idx].resize(2*l_idx + 1);
-					// std::cout << factor_table.size() << '\n';
-					// std::cout << factor_table[l_idx].size() << '\n';
-					for(size_t idx = 0; idx < factor_table[l_idx].size(); idx++){
-						int m_idx = idx - l_idx; // first element of table is m = -l
-						factor_table[l_idx][idx] = exp( gammln_i(l_idx - m_idx + 1) - gammln_i(l_idx + m_idx + 1) );
-						// std::cout << " m = " << m_idx << ": " << factor_table[l_idx][idx] << '\n';
-					}
-				}
-			}
-		}
-		return factor_table[l][m+l]; // offset by l because we can't have negative array indices
-	}
+  // Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
+  float MinkowskiStructureCalculator::spherical_harmonic_factor(unsigned int l, int m)const{
+    // We tabulate the constant prefactors for efficiency
+    static std::vector<std::vector<float>> factor_table;
+    if( l+1 > factor_table.size() ){ // data for l hasn't been generated yet
+      for(size_t l_idx = 0; l_idx <= l; l_idx++){ // so generate prefactors up to l
+        if( l_idx+1 > factor_table.size() ){ // only generate data that hasn't been generated already
+          // std::cout << "l = " << l_idx << '\n';
+          factor_table.resize(l_idx+1);
+          factor_table[l_idx].resize(2*l_idx + 1);
+          // std::cout << factor_table.size() << '\n';
+          // std::cout << factor_table[l_idx].size() << '\n';
+          for(size_t idx = 0; idx < factor_table[l_idx].size(); idx++){
+            int m_idx = idx - l_idx; // first element of table is m = -l
+            factor_table[l_idx][idx] = exp( gammln_i(l_idx - m_idx + 1) - gammln_i(l_idx + m_idx + 1) );
+            // std::cout << " m = " << m_idx << ": " << factor_table[l_idx][idx] << '\n';
+          }
+        }
+      }
+    }
+    return factor_table[l][m+l]; // offset by l because we can't have negative array indices
+  }
 
-	// Calculates a spherical harmonic Y_l^m(z,phi)
-	std::complex<float> MinkowskiStructureCalculator::spherical_harmonic(int l, int m, float theta, float phi)const{
-		// For the Minkowski metrics, the term "lfactor" cancels out in the final expression
-		// for q_l. We retain it here to keep the expression for the spherical harmonics
-		// complete and self-contained.
-		std::complex<float> Ylm;
-		float lfactor = (2*l + 1) / (4 * M_PI);
+  // Calculates a spherical harmonic Y_l^m(z,phi)
+  std::complex<float> MinkowskiStructureCalculator::spherical_harmonic(int l, int m, float theta, float phi)const{
+    // For the Minkowski metrics, the term "lfactor" cancels out in the final expression
+    // for q_l. We retain it here to keep the expression for the spherical harmonics
+    // complete and self-contained.
+    std::complex<float> Ylm;
+    float lfactor = (2*l + 1) / (4 * M_PI);
     // std::cerr << "Ylm " << l << ' ' << m << '\n';
-		float lmfactorial = spherical_harmonic_factor(l, m);
-		// The associated Legendre polynomials for positive and negative m are defined differently
-		if(m >= 0){
-			float Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
-			Ylm.real( Legendre_polynomial * cos(m * phi) );
-			Ylm.imag( Legendre_polynomial * sin(m * phi) );
-		}else{
-			float Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
-			Ylm.real( Legendre_polynomial * cos(m * phi) );
-			Ylm.imag( Legendre_polynomial * sin(m * phi) );
-		}
-		return Ylm;
-	}
+    float lmfactorial = spherical_harmonic_factor(l, m);
+    // The associated Legendre polynomials for positive and negative m are defined differently
+    if(m >= 0){
+      float Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
+      Ylm.real( Legendre_polynomial * cos(m * phi) );
+      Ylm.imag( Legendre_polynomial * sin(m * phi) );
+    }else{
+      float Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
+      Ylm.real( Legendre_polynomial * cos(m * phi) );
+      Ylm.imag( Legendre_polynomial * sin(m * phi) );
+    }
+    return Ylm;
+  }
   // Unit check for the spherical_harmonic function
   void MinkowskiStructureCalculator::verify_spherical_harmonic(void)const{
     float tolerance = 1e-5;
@@ -356,17 +356,17 @@ namespace MSM {
         }
       }
     }
-		// Verify that we're not looping around the periodic box
-		for(size_t i = 0; i < N; i++){
-			// Voro++ sets the particle as its own neighbour if its Voronoi cell
-			// percolates the periodic volume. So we check for that.
-			for(size_t j = 0; j < pData_[i].nb_indices.size(); j++){
-				if(pData_[i].nb_indices[j] == int(i)){
-					std::cerr << "Fatal error: Voro++ cell neighbours itself! Exiting.\n";
-					exit(42);
-				}
-			}
-		}
+    // Verify that we're not looping around the periodic box
+    for(size_t i = 0; i < N; i++){
+      // Voro++ sets the particle as its own neighbour if its Voronoi cell
+      // percolates the periodic volume. So we check for that.
+      for(size_t j = 0; j < pData_[i].nb_indices.size(); j++){
+        if(pData_[i].nb_indices[j] == int(i)){
+          std::cerr << "Fatal error: Voro++ cell neighbours itself! Exiting.\n";
+          exit(42);
+        }
+      }
+    }
   }
 
   // Checks whether the current system is too small to yield valid Voro++ output
@@ -469,10 +469,10 @@ namespace MSM {
       copies++;
       delete con_;
       con_ = new voro::container_periodic(box_(0),
-  														            box_(3), box_(4),
-  														            box_(6), box_(7), box_(8),
-  													              1, 1, 1,
-  																        8);
+                                          box_(3), box_(4),
+                                          box_(6), box_(7), box_(8),
+                                          1, 1, 1,
+                                          8);
       for(size_t i = 0; i < positions_.size(); i++){
         con_->put(i, positions_[i][0], positions_[i][1], positions_[i][2]);
       }
@@ -521,34 +521,34 @@ namespace MSM {
   std::complex<float> MinkowskiStructureCalculator::qlm(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
     std::complex<float> qlm(0.0, 0.0);
-		// Loop over the neighbours / facets
-		for(size_t j = 0; j < p.nb_indices.size(); j++){
-			// Calculate the weight factor from the area contribution
-			float area_weight = p.nb_face_areas[j] / p.total_face_area;
-			// Calculate the spherical harmonic
-			std::complex<float> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
-			qlm += area_weight * Ylm;
-		}
+    // Loop over the neighbours / facets
+    for(size_t j = 0; j < p.nb_indices.size(); j++){
+      // Calculate the weight factor from the area contribution
+      float area_weight = p.nb_face_areas[j] / p.total_face_area;
+      // Calculate the spherical harmonic
+      std::complex<float> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
+      qlm += area_weight * Ylm;
+    }
     return qlm;
-	}
+  }
   std::complex<float> MinkowskiStructureCalculator::qlm_av(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
     // Average over the neighbours, including itself
     std::complex<float> qlm_av = qlm(p_idx, l, m);
-		for(size_t j = 0; j < p.nb_indices.size(); j++){
+    for(size_t j = 0; j < p.nb_indices.size(); j++){
       qlm_av += qlm(j, l, m);
     }
     // Normalize average by number of neighbours
     return qlm_av / float(p.nb_indices.size()+1);
-	}
+  }
   float MinkowskiStructureCalculator::ql(size_t p_idx, unsigned int l)const{
     float sum_m = 0.0;
-		float factor = 4 * M_PI / (2*l + 1);
-		for(int m = -int(l); m <= int(l); m++){
-			sum_m += norm( qlm(p_idx, l, m) );
-		}
-		return sqrt(factor * sum_m);
-	}
+    float factor = 4 * M_PI / (2*l + 1);
+    for(int m = -int(l); m <= int(l); m++){
+      sum_m += norm( qlm(p_idx, l, m) );
+    }
+    return sqrt(factor * sum_m);
+  }
   float MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{
     // Need the qlms first
     std::complex<float> qlms[2 * l + 1];
@@ -630,7 +630,7 @@ namespace MSM {
       all_qlms_[lm_key] = qlms;
     }
     return all_qlms_[lm_key];
-	}
+  }
   std::vector<float> MinkowskiStructureCalculator::ql_all(unsigned int l){
     std::vector<float> qls(pData_.size(), 0.0);
     float factor = 4 * M_PI / (2*l + 1);

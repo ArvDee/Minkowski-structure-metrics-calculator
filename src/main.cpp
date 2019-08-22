@@ -37,7 +37,7 @@ int main(int argc, char *argv[]){
       // Create a GSD loader object that will handle the loading
       GSD_Loader gsd_loader;
       // Give the gsd loader pointers to where it should store the loaded data
-    	gsd_loader.set_data_pointers(&processor.a1, &processor.a2, &processor.a3, &processor.positions);
+      gsd_loader.set_data_pointers(&processor.a1, &processor.a2, &processor.a3, &processor.positions);
       // Open the file
       gsd_loader.open_gsd_file(file_name.c_str());
       size_t n_frames = gsd_loader.n_frames();
@@ -91,5 +91,5 @@ int main(int argc, char *argv[]){
   }
   printf("\n");
 
-	return 1;
+  return 1;
 }

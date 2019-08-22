@@ -14,12 +14,12 @@
 
 /******************************************************************************
   These files define a class for calculating the Minkowski structure
-	metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
-	bond orientational order parameters for the analysis of disordered
-	particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
-	characterize the structure of a set of points in three dimensions in
-	terms of a number of order parameters {q'} that are closely related to
-	the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
+  metrics as defined in Mickel et al. (2013)'s paper "Shortcomings of the
+  bond orientational order parameters for the analysis of disordered
+  particulate matter" (DOI: 10.1063/1.4774084). These structure metrics
+  characterize the structure of a set of points in three dimensions in
+  terms of a number of order parameters {q'} that are closely related to
+  the Steinhardt order parameters (DOI: 10.1103/PhysRevB.28.784).
 ******************************************************************************/
 
 namespace MSM {
@@ -31,8 +31,8 @@ private:
     std::vector<int> nb_indices;
     std::vector<float> thetas; // Bond angles
     std::vector<float> phis;   // Bond angles
-  	std::vector<double> nb_face_areas;
-  	float total_face_area;
+    std::vector<double> nb_face_areas;
+    float total_face_area;
   };
 
   std::vector<Eigen::Vector3d> positions_;

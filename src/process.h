@@ -21,10 +21,10 @@ public:
   std::vector<std::vector<float>> w;
   std::vector<std::vector<float>> q_av;
   std::vector<std::vector<float>> w_av;
-	SnapshotProcessor(void){};
-	virtual ~SnapshotProcessor(void){};
+  SnapshotProcessor(void){};
+  virtual ~SnapshotProcessor(void){};
 
-	void load_snapshot(const std::string file_name);
+  void load_snapshot(const std::string file_name);
 
   void calculate_order_parameters(size_t max_l);
 

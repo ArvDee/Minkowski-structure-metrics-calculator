@@ -22,7 +22,7 @@ private:
   std::vector<std::vector<float>> *positions_;
   // GSD file variables
   gsd_handle handle_;
-	size_t n_frames_;
+  size_t n_frames_;
   // GSD data chunk variables
   const gsd_index_entry* chunk_;
   size_t chunk_size_;
@@ -73,16 +73,16 @@ inline void GSD_Loader::set_data_pointers(
 inline void GSD_Loader::open_gsd_file(const char *gsd_file_name){
   // Open the GSD file and fill the handle
   switch (gsd_open(&handle_, gsd_file_name, GSD_OPEN_READONLY)){
-		case 0: break; // successfully opened file
-		case -1: printf("Error opening GSD file: IO error.\n");                  break;
-		case -2: printf("Error opening GSD file: file is not a GSD file.\n");    break;
-		case -3: printf("Error opening GSD file: invalid GSD version.\n");       break;
-		case -4: printf("Error opening GSD file: corrupt file.\n");              break;
-		case -5: printf("Error opening GSD file: failed to allocate memory.\n"); break;
-		default: printf("Error: unknown return value from gsd_open.\n");         break;
-	}
+    case 0: break; // successfully opened file
+    case -1: printf("Error opening GSD file: IO error.\n");                  break;
+    case -2: printf("Error opening GSD file: file is not a GSD file.\n");    break;
+    case -3: printf("Error opening GSD file: invalid GSD version.\n");       break;
+    case -4: printf("Error opening GSD file: corrupt file.\n");              break;
+    case -5: printf("Error opening GSD file: failed to allocate memory.\n"); break;
+    default: printf("Error: unknown return value from gsd_open.\n");         break;
+  }
   // Get the number of frames in this gsd file
-	n_frames_ = gsd_get_nframes(&handle_);
+  n_frames_ = gsd_get_nframes(&handle_);
   if(n_frames_ == 0){ n_frames_ = 1; }
 }
 
@@ -130,14 +130,14 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
   }
   uint32_t n_particles = (reinterpret_cast<uint32_t*>(raw_data_))[0];
 
-	// Load the box size. Hoomd outputs box dimensions as defined here:
-	// https://gsd.readthedocs.io/en/stable/schema-hoomd.html#chunk-configuration/box
-	// https://hoomd-blue.readthedocs.io/en/stable/box.html
+  // Load the box size. Hoomd outputs box dimensions as defined here:
+  // https://gsd.readthedocs.io/en/stable/schema-hoomd.html#chunk-configuration/box
+  // https://hoomd-blue.readthedocs.io/en/stable/box.html
   if(gsd_load_chunk(frame, "configuration/box") == NULL){
     printf("Fatal error: could not find 'configuration/box' chunk.\n");
     exit(42);
   }
-	float* bx = reinterpret_cast<float*>(raw_data_);
+  float* bx = reinterpret_cast<float*>(raw_data_);
   float Lx=bx[0], Ly=bx[1], Lz=bx[2], xy=bx[3], xz=bx[4], yz=bx[5];
   *a1_ = {Lx,    0,     0};
   *a2_ = {xy*Ly, Ly,    0};
@@ -148,7 +148,7 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
     printf("Fatal error: could not find 'particles/position' chunk.\n");
     exit(42);
   }
-	float* pos = reinterpret_cast<float*>(raw_data_);
+  float* pos = reinterpret_cast<float*>(raw_data_);
   for(size_t i = 0; i < 3*n_particles; i+=3){
     std::vector<float> position = { pos[i], pos[i+1], pos[i+2] };
     positions_->push_back(position);

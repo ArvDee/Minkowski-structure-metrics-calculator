@@ -2,31 +2,31 @@
 
 // Initialize from a unit cell / particle configuration file
 void SnapshotProcessor::load_snapshot(const std::string file_name){
-	// Open initial config file for reading and feed all data to an array of strings
+  // Open initial config file for reading and feed all data to an array of strings
   std::vector<std::string> text;
   std::string line;
   std::ifstream file(file_name);
   if( file.is_open() ){
-		while( getline(file, line) ){
-			text.push_back(line);
-		}
+    while( getline(file, line) ){
+      text.push_back(line);
+    }
     file.close();
-		if(text.size() < 3){
-			std::cout << "Bad initial file, not enough data or wrong format." << '\n';
-		}
+    if(text.size() < 3){
+      std::cout << "Bad initial file, not enough data or wrong format." << '\n';
+    }
   } else std::cout << "Unable to open file.\n";
 
-	// Now convert this data to the correct format
-	int N = strtol(text[0].c_str(), NULL, 10); // # of particles
+  // Now convert this data to the correct format
+  int N = strtol(text[0].c_str(), NULL, 10); // # of particles
   // columns are lattice vecs
-	sscanf(text[1].c_str(),"%f %f %f %f %f %f %f %f %f",&a1[0],&a2[0],&a3[0],&a1[1],&a2[1],&a3[1],&a1[2],&a2[2],&a3[2]); // row-major
+  sscanf(text[1].c_str(),"%f %f %f %f %f %f %f %f %f",&a1[0],&a2[0],&a3[0],&a1[1],&a2[1],&a3[1],&a1[2],&a2[2],&a3[2]); // row-major
   positions.reserve(N);
-	for(int i = 2; i < N+2; i++){
-		// Set the particle's position and orientation from the file
-		std::vector<float> pos(3);
-		sscanf(text[i].c_str(),"%f %f %f",&pos[0],&pos[1],&pos[2]);
-		positions.push_back(pos);
-	}
+  for(int i = 2; i < N+2; i++){
+    // Set the particle's position and orientation from the file
+    std::vector<float> pos(3);
+    sscanf(text[i].c_str(),"%f %f %f",&pos[0],&pos[1],&pos[2]);
+    positions.push_back(pos);
+  }
 }
 
 // Calculates the bond order parameters ql and wl
