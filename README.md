@@ -1,4 +1,4 @@
-## What is this?
+# What is this?
 
 A small C++ code that can read in configurations of 3D particle coordinates and calculate the corresponding Minkowski structure metrics (MSM).
 
@@ -13,7 +13,7 @@ Currently, the code calculates:
 * averaged q<sub>l</sub>
 * averaged w<sub>l</sub>
 
-## Compilation
+# Compilation
 
 Before you can compile this code, you will need:
 * [CMake](https://cmake.org/) to build the compilation instructions
@@ -30,7 +30,7 @@ Navigate to `BOOP_per_snapshot/bin` and type `cmake ..; make`. The code should b
 
 TODO. Haven't figured this out yet.
 
-## Usage
+# Usage
 
 This code currently supports reading in both text coordinate files (with extension ".dat") and the Glotzerlab general simulation data format (".gsd"/".GSD") [[3]](#GSD). The format of the text files should be:
 
