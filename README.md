@@ -44,8 +44,8 @@ where `N` is the number of particles, `a1`, `a2` and `a3` are the lattice vector
 
 GSD files should be supplied as-is and should require no tweaking.
 
-<a name="Mickel2013">1</a>:  [Mickel et al., J. Chem. Phys. 2013](scitation.aip.org/content/aip/journal/jcp/138/4/10.1063/1.4774084)
+<a name="Mickel2013">1</a>:  [Mickel et al., J. Chem. Phys. (2013)](scitation.aip.org/content/aip/journal/jcp/138/4/10.1063/1.4774084)
 
-<a name="Steinhardt1983">2</a>:  [Steinhardt et al., Phys. Rev. B 1983](https://journals.aps.org/prb/abstract/10.1103/PhysRevB.28.784)
+<a name="Steinhardt1983">2</a>:  [Steinhardt et al., Phys. Rev. B (1983)](https://journals.aps.org/prb/abstract/10.1103/PhysRevB.28.784)
 
 <a name="GSD">3</a>:  https://gsd.readthedocs.io/
