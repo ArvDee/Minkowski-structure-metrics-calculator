@@ -16,10 +16,10 @@
 class GSD_Loader {
 private:
   // Variables to load data into
-  std::vector<float> *a1_; // lattice vectors
-  std::vector<float> *a2_;
-  std::vector<float> *a3_;
-  std::vector<std::vector<float>> *positions_;
+  std::vector<double> *a1_; // lattice vectors
+  std::vector<double> *a2_;
+  std::vector<double> *a3_;
+  std::vector<std::vector<double>> *positions_;
   // GSD file variables
   gsd_handle handle_;
   size_t n_frames_;
@@ -33,10 +33,10 @@ public:
   size_t n_frames(void){ return n_frames_; }
   // Function to set the arrays to load data into
   void set_data_pointers(
-    std::vector<float> *a1,
-    std::vector<float> *a2,
-    std::vector<float> *a3,
-    std::vector<std::vector<float>> *positions
+    std::vector<double> *a1,
+    std::vector<double> *a2,
+    std::vector<double> *a3,
+    std::vector<std::vector<double>> *positions
   );
   // Opens a GSD file, sets handle_, and n_frames_
   void open_gsd_file(const char *gsd_file_name);
@@ -58,10 +58,10 @@ inline GSD_Loader::~GSD_Loader(void){
 
 // Sets the pointers to the data arrays where the box and position data should go
 inline void GSD_Loader::set_data_pointers(
-  std::vector<float> *a1,
-  std::vector<float> *a2,
-  std::vector<float> *a3,
-  std::vector<std::vector<float>> *positions
+  std::vector<double> *a1,
+  std::vector<double> *a2,
+  std::vector<double> *a3,
+  std::vector<std::vector<double>> *positions
 ){
   a1_ = a1;
   a2_ = a2;
@@ -138,7 +138,7 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
     exit(42);
   }
   float* bx = reinterpret_cast<float*>(raw_data_);
-  float Lx=bx[0], Ly=bx[1], Lz=bx[2], xy=bx[3], xz=bx[4], yz=bx[5];
+  double Lx=bx[0], Ly=bx[1], Lz=bx[2], xy=bx[3], xz=bx[4], yz=bx[5];
   *a1_ = {Lx,    0,     0};
   *a2_ = {xy*Ly, Ly,    0};
   *a3_ = {xz*Lz, yz*Lz, Lz};
@@ -150,7 +150,7 @@ inline void GSD_Loader::gsd_load_frame(uint64_t frame){
   }
   float* pos = reinterpret_cast<float*>(raw_data_);
   for(size_t i = 0; i < 3*n_particles; i+=3){
-    std::vector<float> position = { pos[i], pos[i+1], pos[i+2] };
+    std::vector<double> position = { pos[i], pos[i+1], pos[i+2] };
     positions_->push_back(position);
   }
   // for (size_t i = 0; i < positions_->size(); i++) {

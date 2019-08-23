@@ -29,10 +29,10 @@ private:
   // Struct for data to store before calculation of metrics
   struct particleData {
     std::vector<int> nb_indices;
-    std::vector<float> thetas; // Bond angles
-    std::vector<float> phis;   // Bond angles
+    std::vector<double> thetas; // Bond angles
+    std::vector<double> phis;   // Bond angles
     std::vector<double> nb_face_areas;
-    float total_face_area;
+    double total_face_area;
   };
 
   std::vector<Eigen::Vector3d> positions_;
@@ -42,8 +42,8 @@ private:
 
   // These store calculated qlms as an associative map, with the pair (l,m) as
   // a key. This allows us to calculate every qlm only once per input config.
-  std::map< std::pair<unsigned int, int>, std::vector<std::complex<float>> > all_qlms_;
-  std::map< std::pair<unsigned int, int>, std::vector<std::complex<float>> > all_qlm_avs_;
+  std::map< std::pair<unsigned int, int>, std::vector<std::complex<double>> > all_qlms_;
+  std::map< std::pair<unsigned int, int>, std::vector<std::complex<double>> > all_qlm_avs_;
 
 
   // Applies periodic boudary conditions
@@ -55,19 +55,19 @@ private:
   // Rotates the configuration so that its box matrix is upper triangular
   void rotate_box_to_uppertriangular(void);
   // Calculates the associated Legendre polynomial P_l^m(x)
-  float LegendrePlm_m_gtr_0(int l, int m, float x)const;
+  double LegendrePlm_m_gtr_0(int l, int m, double x)const;
   // Unit test for the LegendrePlm_m_gtr_0 function
   void verify_LegendreP(void)const;
   // Calculates ln((x-1)!) for integers x > 0 and tabulates them for reuse.
-  float gammln_i(int i)const;
+  double gammln_i(int i)const;
   // Calculate the Wigner 3j-symbols using the Racah formula
-  float wigner3j(int l, int m1, int m2, int m3)const;
+  double specialized_wigner3j(int l, int m1, int m2)const;
   // Unit test for the wigner3j function
   void verify_wigner3j(void)const;
   // Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
-  float spherical_harmonic_factor(unsigned int l, int m)const;
+  double spherical_harmonic_factor(unsigned int l, int m)const;
   // Calculates a spherical harmonic Y_l^m(z,phi)
-  std::complex<float> spherical_harmonic(int l, int m, float theta, float phi)const;
+  std::complex<double> spherical_harmonic(int l, int m, double theta, double phi)const;
   // Unit check for the spherical_harmonic function
   void verify_spherical_harmonic(void)const;
   // Does a number of checks to ensure the Voro++ output is usable
@@ -83,36 +83,36 @@ public:
 
   // Loads in a configuration and prepares everything for ql / wl calculation
   void load_configuration(
-    const std::vector<std::vector<float>>& positions,
-    const std::vector<float>& a1,
-    const std::vector<float>& a2,
-    const std::vector<float>& a3
+    const std::vector<std::vector<double>>& positions,
+    const std::vector<double>& a1,
+    const std::vector<double>& a2,
+    const std::vector<double>& a3
   );
 
   // Calculates a single weighted q_lm for one particle p
-  std::complex<float> qlm(size_t p_idx, unsigned int l, int m)const;
+  std::complex<double> qlm(size_t p_idx, unsigned int l, int m)const;
   // Calculates a single weighted averaged q_lm_av for one particle p
-  std::complex<float> qlm_av(size_t p_idx, unsigned int l, int m)const;
+  std::complex<double> qlm_av(size_t p_idx, unsigned int l, int m)const;
   // Calculates a single q_l for one particle p
-  float ql(size_t p_idx, unsigned int l)const;
+  double ql(size_t p_idx, unsigned int l)const;
   // Calculates a single w_l for one particle p
-  float wl(size_t p_idx, unsigned int l)const;
+  double wl(size_t p_idx, unsigned int l)const;
   // Calculates a single averaged q_l_av for one particle p
-  float ql_av(size_t p_idx, unsigned int l)const;
+  double ql_av(size_t p_idx, unsigned int l)const;
   // Calculates a single averaged w_l_av for one particle p or
-  float wl_av(size_t p_idx, unsigned int l)const;
+  double wl_av(size_t p_idx, unsigned int l)const;
 
   // Compute the qlm/ql/wl and their averages for all particles, storing
   // calculated values to avoid unnecessary re-calculations.
-  const std::vector<std::complex<float>>& qlm_all(unsigned int l, int m);
-  std::vector<float> ql_all(unsigned int l);
-  std::vector<float> wl_all(unsigned int l);
-  const std::vector<std::complex<float>>& qlm_av_all(unsigned int l, int m);
-  std::vector<float> ql_av_all(unsigned int l);
-  std::vector<float> wl_av_all(unsigned int l);
+  const std::vector<std::complex<double>>& qlm_all(unsigned int l, int m);
+  std::vector<double> ql_all(unsigned int l);
+  std::vector<double> wl_all(unsigned int l);
+  const std::vector<std::complex<double>>& qlm_av_all(unsigned int l, int m);
+  std::vector<double> ql_av_all(unsigned int l);
+  std::vector<double> wl_av_all(unsigned int l);
 
-  float bond_crystallinity(size_t i, size_t j, unsigned int l);
-  float bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
+  double bond_crystallinity(size_t i, size_t j, unsigned int l);
+  double bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
 };
 
 } // End namespace MSM

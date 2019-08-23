@@ -14,14 +14,16 @@
 namespace {
   // Verify that value is identical to ref_value within tolerance. If not, raise an error.
   void verifySimilarity(
-    const float& value,
-    const float& ref_value,
-    const float tolerance,
+    const double& value,
+    const double& ref_value,
+    const double tolerance,
     const std::string location
   ){
-    float diff = value - ref_value;
-    float relative_diff = diff / ref_value;
-    if(relative_diff > tolerance){
+    double diff = value - ref_value;
+    double relative_diff = diff / ref_value;
+    if(fabs(relative_diff) < tolerance){
+      return;
+    } else { // Doing it this way also catches diff=NaN
       std::cerr << "Fatal error in Minkowski metric, location '"<<location<<"'\n";
       std::cerr << "Value, reference value, relative difference and tolerance are:\n";
       std::cerr << value <<' '<< ref_value <<' '<< relative_diff <<' '<< tolerance <<'\n';
@@ -30,14 +32,16 @@ namespace {
   }
   // Overload function to also handle the complex values from the spherical harmonics
   void verifySimilarity(
-    const std::complex<float>& value,
-    const std::complex<float>& ref_value,
-    const float tolerance,
+    const std::complex<double>& value,
+    const std::complex<double>& ref_value,
+    const double tolerance,
     const std::string location
   ){
-    std::complex<float> diff = value - ref_value;
-    float relative_diff = abs(diff) / abs(ref_value);
-    if(relative_diff > tolerance){
+    std::complex<double> diff = value - ref_value;
+    double relative_diff = abs(diff) / abs(ref_value);
+    if(fabs(relative_diff) < tolerance){
+      return;
+    } else { // Doing it this way also catches diff=NaN
       std::cerr << "Fatal error in Minkowski metric, location '"<<location<<"'\n";
       std::cerr << "Value, reference value, relative difference and tolerance are:\n";
       std::cerr << value.real() <<"+"<< value.imag() <<"i ";
@@ -136,111 +140,139 @@ namespace MSM {
   }
 
   // Calculates the associated Legendre polynomial P_l^m(x) for positive m
-  float MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, float x)const{
-    // Code copied from Michiel Hermes' bond order code. Thanks Michiel!
-    float fact,pll=0.0,pmm,pmmp1,somx2;
-    int i,ll;
-    if (m < 0 || m > l || fabs(x) > 1.0)
-      printf("Bad arguments in MSM:LegendrePlm %i %i %f\n",l,m,fabs(x));
-    pmm=1.0;
-    if (m > 0) {
-      somx2=sqrt((1.0-x)*(1.0+x));
-      fact=1.0;
-      for (i=1;i<=m;i++) {
-        pmm *= -fact*somx2;
-        fact += 2.0;
-      }
+  double MinkowskiStructureCalculator::LegendrePlm_m_gtr_0(int l, int m, double x)const{
+    // Plm(x) = (-1^m / (2^l l!)) * (1-x^2)^(m/2) * (d/dx)^(l+m) (x^2-1)^l
+    // A clever way to calculate Legendre polynomials based on Michiel Hermes' bond order code.
+    if (m < 0 || m > l || fabs(x) > 1.0){
+      std::cerr << "Bad arguments in MSM:LegendrePlm"<<l<<' '<<m<<' '<<x<<'\n';
+      exit(42);
     }
-    if (l == m)
-      return pmm;
-    else {
-      pmmp1=x*(2*m+1)*pmm;
-      if (l == (m+1))
-        return pmmp1;
-      else {
-        for (ll=m+2;ll<=l;ll++) {
-          pll=(x*(2*ll-1)*pmmp1-(ll+m-1)*pmm)/(ll-m);
-          pmm=pmmp1;
-          pmmp1=pll;
+    // Calculate the case where l==m: Pmm(x)
+    double pmm = 1.0; // P00(x) = 1.0
+    double sumx2 = sqrt(1-x*x);
+    double fact = 1.0;
+    for(int i = 1; i <= m; i++){
+      pmm *= -fact * sumx2;
+      fact += 2.0;
+    }
+    // (TeX notation) Go from P_m^m to P_l^m using two relations:
+    // P_{l+1}^l(x) = x(2l+1)P_l^l(x)
+    // (l-m)P_l^m(x) = x(2l+1)P_{l-1}^m(x) - (l+m-1)P_{l-2}^m(x)
+    double pll = 0.0; // Only has an initial value to silence a compiler warning
+    if(l != m){
+      double pmmp1 = x*(2*m+1)*pmm; // P_{m+1}^m
+      if(l == (m+1)){ return pmmp1; }
+      else{
+        for(int ll = m+2; ll <= l; ll++){
+          pll = (x*(2*ll-1)*pmmp1 - (ll+m-1)*pmm) / (ll-m);
+          pmm = pmmp1;
+          pmmp1 = pll;
         }
         return pll;
       }
     }
+    return pmm;
   }
   // Unit test for the LegendrePlm_m_gtr_0 function
   void MinkowskiStructureCalculator::verify_LegendreP(void)const{
-    float tolerance = 1e-6;
+    double tolerance = 1e-14;
     // Reference values were obtained from Mathematica
-    float ref_1 = 1.0;
-    float ref_2 = -9.92774e-1;
-    float ref_3 = -4.18094e4;
-    float ref_4 = -3.85062e4;
-    float test_1 = LegendrePlm_m_gtr_0(0, 0, 0.11);
-    float test_2 = LegendrePlm_m_gtr_0(1, 1, 0.12);
-    float test_3 = LegendrePlm_m_gtr_0(8, 6, 0.15);
-    float test_4 = LegendrePlm_m_gtr_0(8, 6, -0.16);
+    double ref_1 = 1.0;
+    double ref_2 = -0.9927738916792684;
+    double ref_3 = -41809.40924365284;
+    double ref_4 = -38506.175717768485;
+    double ref_5 = 1.0006646698482125e252;
+    double test_1 = LegendrePlm_m_gtr_0(0, 0, 0.11);
+    double test_2 = LegendrePlm_m_gtr_0(1, 1, 0.12);
+    double test_3 = LegendrePlm_m_gtr_0(8, 6, 0.15);
+    double test_4 = LegendrePlm_m_gtr_0(8, 6, -0.16);
+    double test_5 = LegendrePlm_m_gtr_0(128, 128, -0.17);
     verifySimilarity(test_1, ref_1, tolerance, "unit test verify_LegendreP");
     verifySimilarity(test_2, ref_2, tolerance, "unit test verify_LegendreP");
     verifySimilarity(test_3, ref_3, tolerance, "unit test verify_LegendreP");
     verifySimilarity(test_4, ref_4, tolerance, "unit test verify_LegendreP");
+    verifySimilarity(test_5, ref_5, tolerance, "unit test verify_LegendreP");
   }
 
   // Calculates ln((x-1)!) for integers x > 0 and tabulates them for reuse.
-  float MinkowskiStructureCalculator::gammln_i(int x)const{
+  double MinkowskiStructureCalculator::gammln_i(int x)const{
     // We tabulate the outcomes for efficiency
-    static std::vector<float> table;
-    if( x+1 > int(table.size()) ){ // data for x hasn't been generated yet
-      for(int xi = table.size(); xi <= x; xi++){ // so generate intermediate values up to x
-        table.push_back( lgamma(float(xi)) );
+    static std::vector<double> table;
+    if(x<1024){ // Don't build the table to unlimited size
+      if( x+1 > int(table.size()) ){ // data for x hasn't been generated yet
+        for(int xi = table.size(); xi <= x; xi++){ // so generate intermediate values up to x
+          table.push_back( lgamma(double(xi)) );
+        }
       }
-    }
-    return table[x];
+      return table[x];
+    } else return lgamma(double(x));
   }
 
-  // Calculate the Wigner 3j-symbols using the Racah formula
-  float MinkowskiStructureCalculator::wigner3j(int l, int m1, int m2, int m3)const{
+  // Calculate the Wigner 3j-symbols using the Racah formula (up to l~32)
+  double MinkowskiStructureCalculator::specialized_wigner3j(int l, int m1, int m2)const{
     // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
-    // Note: this is the 3j symbol only for ( l  l  l  )
-    // Not the general one.                 ( m1 m2 m3 )
-    float wigner_factor = exp(3*gammln_i(l+1) - gammln_i(3*l+2)); // (l!)^3 / (3l+1)!
-    // (-1)^m3 * sqrt(prefactor * (l-m1)!*(l+m1)!*(l-m2)!*(l+m2)!*(l-m3)!*(l-m3)! )
-    float wigner = ((std::abs(m3) % 2 == 0)? 1: -1) * sqrt(wigner_factor * exp(
-      gammln_i(l - m1 + 1) + gammln_i(l + m1 + 1) +
-      gammln_i(l - m2 + 1) + gammln_i(l + m2 + 1) +
-      gammln_i(l - m3 + 1) + gammln_i(l + m3 + 1)));
-    float txsum = 0.0;
-    for(int t = std::max(0, std::max(-m1,m2)); t <= std::min(l, std::min(l-m1,l+m2)); t++){
-      // (-1)^t * t! * (l-t)! * (l-m1-t)! * (l+m2-t)! * (t+m1)! * (t-m2)!
-      txsum += ((t % 2 == 0)? 1: -1) / exp(
-        gammln_i(t + 1)          + gammln_i(l - t + 1)      +
-        gammln_i(l - m1 - t + 1) + gammln_i(l + m2 - t + 1) +
-        gammln_i(m1 + t + 1)     + gammln_i(-m2 + t + 1)   );
+    // Note: this is the 3j symbol only for ( l   l   l      )
+    // Not the general one.                 ( m1  m2  -m1-m2 )
+    // Tabulate calculated values for efficiency
+    static std::map<std::tuple<int,int,int>, double> w3jMap;
+    // Check if the Wigner 3j-symbol for this (l,m1,m2) is known already
+    std::tuple<int,int,int> lm1m2_key = std::make_tuple(l,m1,m2);
+    if(w3jMap.find(lm1m2_key) == w3jMap.end()){
+      // If symbol is not known, calculate it and store it in the map.
+      // But first, check if current algorithm can even handle requested l.
+      if(l > 32){
+        std::cerr << "Fatal error: cannot compute wigner3j symbols for l>32.";
+        std::cerr << "Due to limited precision method, these would become inf/NaN.\n";
+        exit(42);
+      }
+      // Okay, now calculate the wigner 3j-symbol.
+      int m3 = -m1-m2;
+      double wigner_factor = exp(3*gammln_i(l+1) - gammln_i(3*l+2)); // (l!)^3 / (3l+1)!
+      // (-1)^m3 * sqrt(prefactor * (l-m1)!*(l+m1)!*(l-m2)!*(l+m2)!*(l-m3)!*(l-m3)! )
+      double wigner = ((std::abs(m3) % 2 == 0)? 1: -1) * sqrt(wigner_factor * exp(
+        gammln_i(l - m1 + 1) + gammln_i(l + m1 + 1) +
+        gammln_i(l - m2 + 1) + gammln_i(l + m2 + 1) +
+        gammln_i(l - m3 + 1) + gammln_i(l + m3 + 1)));
+      double txsum = 0.0;
+      for(int t = std::max(0, std::max(-m1,m2)); t <= std::min(l, std::min(l-m1,l+m2)); t++){
+        // (-1)^t * t! * (l-t)! * (l-m1-t)! * (l+m2-t)! * (t+m1)! * (t-m2)!
+        txsum += ((t % 2 == 0)? 1: -1) / exp(
+          gammln_i(t + 1)          + gammln_i(l - t + 1)      +
+          gammln_i(l - m1 - t + 1) + gammln_i(l + m2 - t + 1) +
+          gammln_i(m1 + t + 1)     + gammln_i(-m2 + t + 1)   );
+      }
+      wigner *= txsum;
+      if(w3jMap.size() < 1e6){ // Don't grow the map infinitely
+        w3jMap[lm1m2_key] = wigner;
+      } else return wigner;
     }
-    wigner *= txsum;
-    return wigner;
+    return w3jMap[lm1m2_key];
   }
   // Unit test for the wigner3j function
   void MinkowskiStructureCalculator::verify_wigner3j(void)const{
-    float tolerance = 1e-16;
+    double tolerance = 1e-12;
     // Reference values were obtained from Mathematica
-    float ref_1 = 1.0;                        // l=0, m1=0,  m2=0,  m3=0
-    float ref_2 = 1.0 / sqrt(6.0);            // l=1, m1=0,  m2=1,  m3=-1
-    float ref_3 = -sqrt(3.0/35.0);            // l=2, m1=2,  m2=-1, m3=-1
-    float ref_4 = -3.0 / (2.0 * sqrt(143.0)); // l=5, m1=-4, m2=-2, m3=5
-    float test_1 = wigner3j(0, 0, 0, 0);
-    float test_2 = wigner3j(1, 0, 1, -1);
-    float test_3 = wigner3j(2, 2, -1, -1);
-    float test_4 = wigner3j(5, -4, -2, 5);
+    double ref_1 = 1.0;                        // l=0,  m1=0,   m2=0
+    double ref_2 = 1.0 / sqrt(6.0);            // l=1,  m1=0,   m2=1
+    double ref_3 = -sqrt(3.0/35.0);            // l=2,  m1=2,   m2=-1
+    double ref_4 = -3.0 / (2.0 * sqrt(143.0)); // l=5,  m1=-4,  m2=-1
+    double ref_5 = 0.016988287171668218048;    // l=32, m1=-31, m2=17
+    double test_1 = specialized_wigner3j(0, 0, 0);
+    double test_2 = specialized_wigner3j(1, 0, 1);
+    double test_3 = specialized_wigner3j(2, 2, -1);
+    double test_4 = specialized_wigner3j(5, -4, -1);
+    double test_5 = specialized_wigner3j(32, -31, 17);
     verifySimilarity(test_1, ref_1, tolerance, "unit test verify_wigner3j");
     verifySimilarity(test_2, ref_2, tolerance, "unit test verify_wigner3j");
     verifySimilarity(test_3, ref_3, tolerance, "unit test verify_wigner3j");
     verifySimilarity(test_4, ref_4, tolerance, "unit test verify_wigner3j");
+    verifySimilarity(test_5, ref_5, tolerance, "unit test verify_wigner3j");
   }
 
   // Calculates prefactors (l-m)!/(l+m)! using log gamma functions for the factorials
-  float MinkowskiStructureCalculator::spherical_harmonic_factor(unsigned int l, int m)const{
+  double MinkowskiStructureCalculator::spherical_harmonic_factor(unsigned int l, int m)const{
     // We tabulate the constant prefactors for efficiency
-    static std::vector<std::vector<float>> factor_table;
+    static std::vector<std::vector<double>> factor_table;
     if( l+1 > factor_table.size() ){ // data for l hasn't been generated yet
       for(size_t l_idx = 0; l_idx <= l; l_idx++){ // so generate prefactors up to l
         if( l_idx+1 > factor_table.size() ){ // only generate data that hasn't been generated already
@@ -261,21 +293,21 @@ namespace MSM {
   }
 
   // Calculates a spherical harmonic Y_l^m(z,phi)
-  std::complex<float> MinkowskiStructureCalculator::spherical_harmonic(int l, int m, float theta, float phi)const{
+  std::complex<double> MinkowskiStructureCalculator::spherical_harmonic(int l, int m, double theta, double phi)const{
     // For the Minkowski metrics, the term "lfactor" cancels out in the final expression
     // for q_l. We retain it here to keep the expression for the spherical harmonics
     // complete and self-contained.
-    std::complex<float> Ylm;
-    float lfactor = (2*l + 1) / (4 * M_PI);
+    std::complex<double> Ylm;
+    double lfactor = (2*l + 1) / (4 * M_PI);
     // std::cerr << "Ylm " << l << ' ' << m << '\n';
-    float lmfactorial = spherical_harmonic_factor(l, m);
+    double lmfactorial = spherical_harmonic_factor(l, m);
     // The associated Legendre polynomials for positive and negative m are defined differently
     if(m >= 0){
-      float Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
+      double Legendre_polynomial = sqrt(lfactor*lmfactorial) * LegendrePlm_m_gtr_0(l, m, cos(theta));
       Ylm.real( Legendre_polynomial * cos(m * phi) );
       Ylm.imag( Legendre_polynomial * sin(m * phi) );
     }else{
-      float Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
+      double Legendre_polynomial = pow(-1.0,-m) * sqrt(lfactor/lmfactorial) * LegendrePlm_m_gtr_0(l, -m, cos(theta));
       Ylm.real( Legendre_polynomial * cos(m * phi) );
       Ylm.imag( Legendre_polynomial * sin(m * phi) );
     }
@@ -283,20 +315,20 @@ namespace MSM {
   }
   // Unit check for the spherical_harmonic function
   void MinkowskiStructureCalculator::verify_spherical_harmonic(void)const{
-    float tolerance = 1e-5;
+    double tolerance = 1e-5;
     // Reference values were obtained from Mathematica
-    std::complex<float> ref_1(0.282095, 0.0);             // l=0, m=0,  theta=0.123, phi=0.321
-    std::complex<float> ref_2(0.71284, 0.0);              // l=3, m=0,  theta=0.123, phi=0.321
-    std::complex<float> ref_3(0.0122278,0.00914218);      // l=3, m=2,  theta=0.123, phi=0.321
-    std::complex<float> ref_4(0.0122278,-0.00914218);     // l=3, m=-2, theta=0.123, phi=0.321
-    std::complex<float> ref_5(9.03322e-06,-0.000263998);  // l=8, m=5,  theta=0.123, phi=0.321
-    std::complex<float> ref_6(-9.03322e-06,-0.000263998); // l=8, m=-5, theta=0.123, phi=0.321
-    std::complex<float> test_1 = spherical_harmonic(0, 0, 0.123, 0.321);
-    std::complex<float> test_2 = spherical_harmonic(3, 0, 0.123, 0.321);
-    std::complex<float> test_3 = spherical_harmonic(3, 2, 0.123, 0.321);
-    std::complex<float> test_4 = spherical_harmonic(3, -2, 0.123, 0.321);
-    std::complex<float> test_5 = spherical_harmonic(8, 5, 0.123, 0.321);
-    std::complex<float> test_6 = spherical_harmonic(8, -5, 0.123, 0.321);
+    std::complex<double> ref_1(0.282095, 0.0);             // l=0, m=0,  theta=0.123, phi=0.321
+    std::complex<double> ref_2(0.71284, 0.0);              // l=3, m=0,  theta=0.123, phi=0.321
+    std::complex<double> ref_3(0.0122278,0.00914218);      // l=3, m=2,  theta=0.123, phi=0.321
+    std::complex<double> ref_4(0.0122278,-0.00914218);     // l=3, m=-2, theta=0.123, phi=0.321
+    std::complex<double> ref_5(9.03322e-06,-0.000263998);  // l=8, m=5,  theta=0.123, phi=0.321
+    std::complex<double> ref_6(-9.03322e-06,-0.000263998); // l=8, m=-5, theta=0.123, phi=0.321
+    std::complex<double> test_1 = spherical_harmonic(0, 0, 0.123, 0.321);
+    std::complex<double> test_2 = spherical_harmonic(3, 0, 0.123, 0.321);
+    std::complex<double> test_3 = spherical_harmonic(3, 2, 0.123, 0.321);
+    std::complex<double> test_4 = spherical_harmonic(3, -2, 0.123, 0.321);
+    std::complex<double> test_5 = spherical_harmonic(8, 5, 0.123, 0.321);
+    std::complex<double> test_6 = spherical_harmonic(8, -5, 0.123, 0.321);
     verifySimilarity(test_1, ref_1, tolerance, "unit test verify_spherical_harmonic");
     verifySimilarity(test_2, ref_2, tolerance, "unit test verify_spherical_harmonic");
     verifySimilarity(test_3, ref_3, tolerance, "unit test verify_spherical_harmonic");
@@ -417,10 +449,10 @@ namespace MSM {
 
   // Loads a configuration and calculates the neighbour information using Voro++
   void MinkowskiStructureCalculator::load_configuration(
-    const std::vector<std::vector<float>>& positions,
-    const std::vector<float>& a1,
-    const std::vector<float>& a2,
-    const std::vector<float>& a3
+    const std::vector<std::vector<double>>& positions,
+    const std::vector<double>& a1,
+    const std::vector<double>& a2,
+    const std::vector<double>& a3
   ){
     // Store the lattice vectors a1, a2, a3 in the columns of a box matrix
     box_ << a1[0], a2[0], a3[0],
@@ -491,7 +523,7 @@ namespace MSM {
     verify_voro_results();
 
     // Create the bond angle vectors
-    float dx,dy, dz, theta, phi;
+    double dx,dy, dz, theta, phi;
     for(size_t i = 0; i < positions_.size(); i++){
       // for(size_t j = 0; j < pData_[i].nb_indices.size(); j++){
       for(int nb_i : pData_[i].nb_indices){
@@ -513,62 +545,63 @@ namespace MSM {
 
     // Clear any stored qlm data from previously loaded configurations
     all_qlms_.clear();
+    all_qlm_avs_.clear();
   }
 
   // Compute structure metrics for single particles and a single l.
   // These do not store their results, and should only be used if you
   // only need their values for a few particles in a larger system.
-  std::complex<float> MinkowskiStructureCalculator::qlm(size_t p_idx, unsigned int l, int m)const{
+  std::complex<double> MinkowskiStructureCalculator::qlm(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
-    std::complex<float> qlm(0.0, 0.0);
+    std::complex<double> qlm(0.0, 0.0);
     // Loop over the neighbours / facets
     for(size_t j = 0; j < p.nb_indices.size(); j++){
       // Calculate the weight factor from the area contribution
-      float area_weight = p.nb_face_areas[j] / p.total_face_area;
+      double area_weight = p.nb_face_areas[j] / p.total_face_area;
       // Calculate the spherical harmonic
-      std::complex<float> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
+      std::complex<double> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
       qlm += area_weight * Ylm;
     }
     return qlm;
   }
-  std::complex<float> MinkowskiStructureCalculator::qlm_av(size_t p_idx, unsigned int l, int m)const{
+  std::complex<double> MinkowskiStructureCalculator::qlm_av(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
     // Average over the neighbours, including itself
-    std::complex<float> qlm_av = qlm(p_idx, l, m);
+    std::complex<double> qlm_av = qlm(p_idx, l, m);
     for(size_t j = 0; j < p.nb_indices.size(); j++){
       qlm_av += qlm(j, l, m);
     }
     // Normalize average by number of neighbours
-    return qlm_av / float(p.nb_indices.size()+1);
+    return qlm_av / double(p.nb_indices.size()+1);
   }
-  float MinkowskiStructureCalculator::ql(size_t p_idx, unsigned int l)const{
-    float sum_m = 0.0;
-    float factor = 4 * M_PI / (2*l + 1);
+  double MinkowskiStructureCalculator::ql(size_t p_idx, unsigned int l)const{
+    double sum_m = 0.0;
+    double factor = 4 * M_PI / (2*l + 1);
     for(int m = -int(l); m <= int(l); m++){
       sum_m += norm( qlm(p_idx, l, m) );
     }
     return sqrt(factor * sum_m);
   }
-  float MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{
+  double MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{
     // Need the qlms first
-    std::complex<float> qlms[2 * l + 1];
+    std::complex<double> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
       qlms[l+m] = qlm(p_idx, l, m);
     }
 
     // Now we can calculate the wl
-    float wl = 0;
+    double wl = 0;
     // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
     // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
     for(int m1 = -int(l); m1 <= int(l); m1++){
       for(int m2 = -int(l); m2 <= int(l); m2++){
         int m3 = -m1-m2;
         if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
-        wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
+        wl += specialized_wigner3j(l,m1,m2) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
       }
     }
     // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-    float qlms_norm = 0.0;
+    double qlms_norm = 0.0;
     for(int m = -int(l); m <= int(l); m++){
       qlms_norm += norm(qlms[l+m]);
     }
@@ -577,34 +610,34 @@ namespace MSM {
     if(wl < 1e-6 && qlms_norm < 1e-6){ return 0.0; }
     return wl / qlms_norm;
   }
-  float MinkowskiStructureCalculator::ql_av(size_t p_idx, unsigned int l)const{
-    float sum_m = 0.0;
-    float factor = 4 * M_PI / (2*l + 1);
+  double MinkowskiStructureCalculator::ql_av(size_t p_idx, unsigned int l)const{
+    double sum_m = 0.0;
+    double factor = 4 * M_PI / (2*l + 1);
     for(int m = -int(l); m <= int(l); m++){
       sum_m += norm( qlm_av(p_idx, l, m) );
     }
     return sqrt(factor * sum_m);
   }
-  float MinkowskiStructureCalculator::wl_av(size_t p_idx, unsigned int l)const{
+  double MinkowskiStructureCalculator::wl_av(size_t p_idx, unsigned int l)const{
     // Need the qlms first
-    std::complex<float> qlms[2 * l + 1];
+    std::complex<double> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
       qlms[l+m] = qlm_av(p_idx, l, m);
     }
 
     // Now we can calculate the wl
-    float wl = 0;
+    double wl = 0;
     // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
     // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
     for(int m1 = -int(l); m1 <= int(l); m1++){
       for(int m2 = -int(l); m2 <= int(l); m2++){
         int m3 = -m1-m2;
         if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
-        wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
+        wl += specialized_wigner3j(l,m1,m2) * (qlms[l+m1] * qlms[l+m2] * qlms[l+m3]).real();
       }
     }
     // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-    float qlms_norm = 0.0;
+    double qlms_norm = 0.0;
     for(int m = -int(l); m <= int(l); m++){
       qlms_norm += norm(qlms[l+m]);
     }
@@ -618,12 +651,12 @@ namespace MSM {
   // These functions use all_qlms_ and all_qlm_avs_ to make sure we only compute
   // the qlm / avg qlm for each particle once. This is a significant optimization
   // when computing the averaged q/w's, or even when computing both q's and w's.
-  const std::vector<std::complex<float>>& MinkowskiStructureCalculator::qlm_all(unsigned int l, int m){
+  const std::vector<std::complex<double>>& MinkowskiStructureCalculator::qlm_all(unsigned int l, int m){
     // Check if the qlms for this (l,m) pair are known already
     std::pair<unsigned int, int> lm_key = std::make_pair(l,m);
     if( all_qlms_[lm_key].empty() ){
       // If they are not known, calculate and store them
-      std::vector<std::complex<float>> qlms( pData_.size(), std::complex<float>(0.0, 0.0) );
+      std::vector<std::complex<double>> qlms( pData_.size(), std::complex<double>(0.0, 0.0) );
       for(size_t i = 0; i < pData_.size(); i++){
         qlms[i] = qlm(i, l, m);
       }
@@ -631,41 +664,41 @@ namespace MSM {
     }
     return all_qlms_[lm_key];
   }
-  std::vector<float> MinkowskiStructureCalculator::ql_all(unsigned int l){
-    std::vector<float> qls(pData_.size(), 0.0);
-    float factor = 4 * M_PI / (2*l + 1);
+  std::vector<double> MinkowskiStructureCalculator::ql_all(unsigned int l){
+    std::vector<double> qls(pData_.size(), 0.0);
+    double factor = 4 * M_PI / (2*l + 1);
     for(size_t i = 0; i < pData_.size(); i++){
-      float sum_m = 0.0;
+      double sum_m = 0.0;
       for(int m = -int(l); m <= int(l); m++){
-        std::complex<float> qlm = qlm_all(l,m)[i];
+        std::complex<double> qlm = qlm_all(l,m)[i];
         sum_m += norm(qlm);
       }
       qls[i] = sqrt(factor * sum_m);
     }
     return qls;
   }
-  std::vector<float> MinkowskiStructureCalculator::wl_all(unsigned int l){
+  std::vector<double> MinkowskiStructureCalculator::wl_all(unsigned int l){
     // Get the required qlms in an (l, p_idx) structured array
-    std::vector<std::complex<float>> qlms[2 * l + 1];
+    std::vector<std::complex<double>> qlms[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
       qlms[l+m] = qlm_all(l, m);
     }
 
     // Then calculate the wl's
-    std::vector<float> wls(pData_.size());
+    std::vector<double> wls(pData_.size());
     for(size_t i = 0; i < pData_.size(); i++){
-      float wl = 0.0;
+      double wl = 0.0;
       // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
       // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
       for(int m1 = -int(l); m1 <= int(l); m1++){
         for(int m2 = -int(l); m2 <= int(l); m2++){
           int m3 = -m1-m2;
           if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
-          wl += wigner3j(l,m1,m2,m3) * (qlms[l+m1][i] * qlms[l+m2][i] * qlms[l+m3][i]).real();
+          wl += specialized_wigner3j(l,m1,m2) * (qlms[l+m1][i] * qlms[l+m2][i] * qlms[l+m3][i]).real();
         }
       }
       // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-      float qlms_norm = 0.0;
+      double qlms_norm = 0.0;
       for(int m = -int(l); m <= int(l); m++){
         qlms_norm += norm(qlms[l+m][i]);
       }
@@ -676,61 +709,61 @@ namespace MSM {
     }
     return wls;
   }
-  const std::vector<std::complex<float>>& MinkowskiStructureCalculator::qlm_av_all(unsigned int l, int m){
+  const std::vector<std::complex<double>>& MinkowskiStructureCalculator::qlm_av_all(unsigned int l, int m){
     // Check if the averaged qlms for this (l,m) pair are known already
     std::pair<unsigned int, int> lm_key = std::make_pair(l,m);
     if( all_qlm_avs_[lm_key].empty() ){
       // If not, calculate them.
       // First, make sure all qlms for this (l,m) are available
-      const std::vector<std::complex<float>>& qlms = qlm_all(l,m);
+      const std::vector<std::complex<double>>& qlms = qlm_all(l,m);
       // The compute qlm_av by averaging over neighbours plus itself
-      std::vector<std::complex<float>> qlm_avs( pData_.size(), std::complex<float>(0.0, 0.0) );
+      std::vector<std::complex<double>> qlm_avs( pData_.size(), std::complex<double>(0.0, 0.0) );
       for(size_t i = 0; i < pData_.size(); i++){
-        std::complex<float> qlm_av = qlms[i];
+        std::complex<double> qlm_av = qlms[i];
         for(size_t nb_i : pData_[i].nb_indices){
           qlm_av += qlms[nb_i];
         }
-        qlm_avs[i] = qlm_av / float(pData_[i].nb_indices.size()+1);
+        qlm_avs[i] = qlm_av / double(pData_[i].nb_indices.size()+1);
       }
       all_qlm_avs_[lm_key] = qlm_avs;
     }
     return all_qlm_avs_[lm_key];
   }
-  std::vector<float> MinkowskiStructureCalculator::ql_av_all(unsigned int l){
-    std::vector<float> ql_avs(pData_.size(), 0.0);
-    float factor = 4 * M_PI / (2*l + 1);
+  std::vector<double> MinkowskiStructureCalculator::ql_av_all(unsigned int l){
+    std::vector<double> ql_avs(pData_.size(), 0.0);
+    double factor = 4 * M_PI / (2*l + 1);
     for(size_t i = 0; i < pData_.size(); i++){
-      float sum_m = 0.0;
+      double sum_m = 0.0;
       for(int m = -int(l); m <= int(l); m++){
-        std::complex<float> qlm_av = qlm_av_all(l,m)[i];
+        std::complex<double> qlm_av = qlm_av_all(l,m)[i];
         sum_m += norm(qlm_av);
       }
       ql_avs[i] = sqrt(factor * sum_m);
     }
     return ql_avs;
   }
-  std::vector<float> MinkowskiStructureCalculator::wl_av_all(unsigned int l){
+  std::vector<double> MinkowskiStructureCalculator::wl_av_all(unsigned int l){
     // Get the required qlms in an (l, p_idx) structured array
-    std::vector<std::complex<float>> qlm_avs[2 * l + 1];
+    std::vector<std::complex<double>> qlm_avs[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
       qlm_avs[l+m] = qlm_av_all(l, m);
     }
 
     // Then calculate the wl's
-    std::vector<float> wl_avs(pData_.size());
+    std::vector<double> wl_avs(pData_.size());
     for(size_t i = 0; i < pData_.size(); i++){
-      float wl_av = 0.0;
+      double wl_av = 0.0;
       // Calculate the wl, using the Racah formula for the Wigner 3j-symbols
       // (Quantum Mechanics Volume II, Albert Messiah, 1962, p.1058)
       for(int m1 = -int(l); m1 <= int(l); m1++){
         for(int m2 = -int(l); m2 <= int(l); m2++){
           int m3 = -m1-m2;
           if(m3 < -int(l) || m3 > int(l)){continue;} // enforce -l <= m3 <= l
-          wl_av += wigner3j(l,m1,m2,m3) * (qlm_avs[l+m1][i] * qlm_avs[l+m2][i] * qlm_avs[l+m3][i]).real();
+          wl_av += specialized_wigner3j(l,m1,m2) * (qlm_avs[l+m1][i] * qlm_avs[l+m2][i] * qlm_avs[l+m3][i]).real();
         }
       }
       // Normalize wl by 1.0 / (|ql|^2)^(3/2) to map it into the range [0,1]
-      float qlm_avs_norm = 0.0;
+      double qlm_avs_norm = 0.0;
       for(int m = -int(l); m <= int(l); m++){
         qlm_avs_norm += norm(qlm_avs[l+m][i]);
       }
@@ -743,16 +776,16 @@ namespace MSM {
   }
 
   // Calculates the dot product of the qlms to define measure of crystallinity
-  float MinkowskiStructureCalculator::bond_crystallinity(size_t i, size_t j, unsigned int l){
+  double MinkowskiStructureCalculator::bond_crystallinity(size_t i, size_t j, unsigned int l){
     // Based on Rein ten Wolde et al. (DOI: 10.1063/1.471721)
     // Get the required qlms in an (l, p_idx) structured array
-    std::complex<float> qlms_i[2 * l + 1], qlms_j[2 * l + 1];
+    std::complex<double> qlms_i[2 * l + 1], qlms_j[2 * l + 1];
     for(int m = -int(l); m <= int(l); m++){
       qlms_i[l+m] = qlm_all(l, m)[i];
       qlms_j[l+m] = qlm_all(l, m)[j];
     }
     // Calculate the norms
-    float norm_i = 0.0, norm_j = 0.0;
+    double norm_i = 0.0, norm_j = 0.0;
     for(int m = -int(l); m <= int(l); m++){
       norm_i += norm(qlms_i[l+m]);
       norm_j += norm(qlms_j[l+m]);
@@ -760,7 +793,7 @@ namespace MSM {
     norm_i = sqrt(norm_i);
     norm_j = sqrt(norm_j);
     // Calculate the dot product
-    std::complex<float> dot = 0.0;
+    std::complex<double> dot = 0.0;
     for(int m = -int(l); m <= int(l); m++){
       // Prevent precision errors if qlm's are almost 0 (e.g. for q=1, which should always be 0)
       if( !(abs(qlms_i[l+m]) < 1e-6 && abs(norm_i) < 1e-6) ){
@@ -775,13 +808,13 @@ namespace MSM {
   }
 
   // As above, but averages over all input l
-  float MinkowskiStructureCalculator::bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l){
+  double MinkowskiStructureCalculator::bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l){
     // Extension of Rein ten Wolde et al. (DOI: 10.1063/1.471721)
-    float dot_av = 0.0;
+    double dot_av = 0.0;
     for(unsigned int l : all_l){
       dot_av += bond_crystallinity(i, j, l);
     }
-    return dot_av / float(all_l.size());
+    return dot_av / double(all_l.size());
   }
 
 
