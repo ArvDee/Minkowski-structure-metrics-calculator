@@ -21,6 +21,8 @@ public:
   std::vector<std::vector<double>> w;
   std::vector<std::vector<double>> q_av;
   std::vector<std::vector<double>> w_av;
+  std::vector<std::vector<double>> q_dot;
+  std::vector<std::vector<double>> q_dot_av;
   SnapshotProcessor(void){};
   virtual ~SnapshotProcessor(void){};
 

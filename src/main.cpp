@@ -54,6 +54,8 @@ int main(int argc, char *argv[]){
           processor.save_boops(dir_name, "w"+i_str, processor.w);
           processor.save_boops(dir_name, "avq"+i_str, processor.q_av);
           processor.save_boops(dir_name, "avw"+i_str, processor.w_av);
+          processor.save_boops(dir_name, "qdot"+i_str, processor.q_dot);
+          processor.save_boops(dir_name, "avqdot"+i_str, processor.q_dot);
         }
       }else{
         char* non_nr;
@@ -74,6 +76,8 @@ int main(int argc, char *argv[]){
         processor.save_boops(dir_name, "w", processor.w);
         processor.save_boops(dir_name, "avq", processor.q_av);
         processor.save_boops(dir_name, "avw", processor.w_av);
+        processor.save_boops(dir_name, "qdot", processor.q_dot);
+        processor.save_boops(dir_name, "avqdot", processor.q_dot_av);
       }
       // The specified frame also takes up an argument slot => increment before processing next one
       arg++;
@@ -85,6 +89,8 @@ int main(int argc, char *argv[]){
       processor.save_boops(dir_name, "w", processor.w);
       processor.save_boops(dir_name, "avq", processor.q_av);
       processor.save_boops(dir_name, "avw", processor.w_av);
+      processor.save_boops(dir_name, "qdot", processor.q_dot);
+      processor.save_boops(dir_name, "avqdot", processor.q_dot_av);
     }else{
       printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
     }

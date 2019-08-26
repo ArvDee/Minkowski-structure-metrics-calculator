@@ -111,6 +111,11 @@ public:
   std::vector<double> ql_av_all(unsigned int l);
   std::vector<double> wl_av_all(unsigned int l);
 
+  // Another bond order parameter variant from DOI: 10.1039/C8CP05248D
+  double ql_dot(size_t p_idx, unsigned int l);
+  std::vector<double> ql_dot_all(unsigned int l);
+  std::vector<double> ql_dot_av_all(unsigned int l);
+
   double bond_crystallinity(size_t i, size_t j, unsigned int l);
   double bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
 };

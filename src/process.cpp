@@ -39,11 +39,15 @@ void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   w = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   q_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   w_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
+  q_dot = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
+  q_dot_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   for(size_t l = 0; l <= max_l; l++){
     q[l] = msm.ql_all(l);
     w[l] = msm.wl_all(l);
     q_av[l] = msm.ql_av_all(l);
     w_av[l] = msm.wl_av_all(l);
+    q_dot[l] = msm.ql_dot_all(l);
+    q_dot_av[l] = msm.ql_dot_av_all(l);
   }
 
   // test
