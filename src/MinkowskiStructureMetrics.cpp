@@ -775,6 +775,38 @@ namespace MSM {
     return wl_avs;
   }
 
+  // Another kind of bond order parameter from DOI: 10.1039/C8CP05248D
+  std::vector<double> MinkowskiStructureCalculator::ql_dot_all(size_t i, unsigned int l){
+    // Based on Eslami et al. (DOI: 10.1039/C8CP05248D)
+    std::vector<double> qls(pData_.size(), 0.0);
+    // Get the required qlms in an (l, p_idx) structured array
+    std::complex<double> qlms_i[2 * l + 1], qlms_j[2 * l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlms_i[l+m] = qlm_all(l, m)[i];
+    }
+    // Calculate the norms
+    double norm_i = 0.0, norm_j = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      norm_i += norm(qlms_i[l+m]);
+    }
+    norm_i = sqrt(norm_i);
+    // Calculate the dot product
+    std::complex<double> dot = 0.0;
+    // Sum over neighbours
+    for(size_t nb_i : pData_[i].nb_indices){
+      // Sum over m
+      for(int m = -int(l); m <= int(l); m++){
+        qlms_j[l+m] = qlm_all(l, m)[j];
+        // Prevent precision errors if qlm's are almost 0 (e.g. for q=1, which should always be 0)
+        if( !(abs(qlms_i[l+m]) < 1e-6 && abs(norm_i) < 1e-6) ){
+          qls[l][i] += (qlms_i[l+m] / norm_i) * conj(qlms_j[l+m] / norm_j);
+        }
+        norm_j += norm(qlms_j[l+m]);
+      }
+      norm_j = sqrt(norm_j);
+    }
+  }
+
   // Calculates the dot product of the qlms to define measure of crystallinity
   double MinkowskiStructureCalculator::bond_crystallinity(size_t i, size_t j, unsigned int l){
     // Based on Rein ten Wolde et al. (DOI: 10.1063/1.471721)
