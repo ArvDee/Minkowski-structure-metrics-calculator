@@ -849,7 +849,7 @@ namespace MSM {
   }
   // ql_dot averaged over its neighbours
   std::vector<double> MinkowskiStructureCalculator::ql_dot_av_all(unsigned int l){
-    // TODO: if this becomes useful, maybe optimize by tabulating a la qlm_av
+    // TODO: if this turns out to be useful, maybe optimize by tabulating à la qlm_av
     std::vector<double> ql_dots = ql_dot_all(l);
     std::vector<double> ql_dot_avs(pData_.size());
     // For all particles i
@@ -908,5 +908,15 @@ namespace MSM {
     return dot_av / double(all_l.size());
   }
 
-
+  // Number of Voronoi neighbours
+  int MinkowskiStructureCalculator::n_voro_neighbours(size_t i){
+    return pData_[i].nb_indices.size();
+  }
+  std::vector<int> MinkowskiStructureCalculator::n_voro_neighbours_all(void){
+    std::vector<int> n_neighbours(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      n_neighbours[i] = n_voro_neighbours(i);
+    }
+    return n_neighbours;
+  }
 }

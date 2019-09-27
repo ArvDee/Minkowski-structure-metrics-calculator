@@ -118,6 +118,10 @@ public:
 
   double bond_crystallinity(size_t i, size_t j, unsigned int l);
   double bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
+
+  // Number of Voronoi neighbours
+  int n_voro_neighbours(size_t i);
+  std::vector<int> n_voro_neighbours_all(void);
 };
 
 } // End namespace MSM

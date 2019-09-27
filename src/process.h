@@ -23,6 +23,7 @@ public:
   std::vector<std::vector<double>> w_av;
   std::vector<std::vector<double>> q_dot;
   std::vector<std::vector<double>> q_dot_av;
+  std::vector<int> n_voro_nbs;
   SnapshotProcessor(void){};
   virtual ~SnapshotProcessor(void){};
 
@@ -36,6 +37,12 @@ public:
     const std::string target_dir,
     const std::string file_name,
     std::vector<std::vector<double>>& boop_vector
+  )const;
+
+  void save_nbs(
+    const std::string target_dir,
+    const std::string file_name,
+    std::vector<int>& nbs_vector
   )const;
 };
 

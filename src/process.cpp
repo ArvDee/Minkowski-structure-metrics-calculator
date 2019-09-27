@@ -41,6 +41,7 @@ void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   w_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   q_dot = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   q_dot_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
+  n_voro_nbs = msm.n_voro_neighbours_all();
   for(size_t l = 0; l <= max_l; l++){
     q[l] = msm.ql_all(l);
     w[l] = msm.wl_all(l);
@@ -78,11 +79,13 @@ void SnapshotProcessor::save_boops(
   std::string extension = ".txt";
   unsigned int idx = 0;
   // Create the full path
-  std::string full_path = target_dir + file_name + '_' + std::to_string(idx) + extension;
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
   // Check if the file name we want already exists
   while( file_exists(full_path) ){
     idx++;
-    full_path = target_dir + file_name + '_' + std::to_string(idx) + extension;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
   }
   std::ofstream file;
   // Write data
@@ -92,5 +95,33 @@ void SnapshotProcessor::save_boops(
     file << '\n';
   }
   std::cout << "Saved boop data to " << full_path << '\n';
+  file.close();
+}
+
+// Creates new files to save the number of neighbours
+void SnapshotProcessor::save_nbs(
+  const std::string target_dir,
+  const std::string file_name,
+  std::vector<int>& nbs_vector
+)const{
+  size_t N = positions.size();
+  std::string extension = ".txt";
+  unsigned int idx = 0;
+  // Create the full path
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  // Check if the file name we want already exists
+  while( file_exists(full_path) ){
+    idx++;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  }
+  std::ofstream file;
+  // Write data
+  file.open(full_path, std::ios::out | std::ios::out);
+  for(size_t i = 0; i < N; i++){
+    file << nbs_vector[i] << '\n';
+  }
+  std::cout << "Saved nb data to " << full_path << '\n';
   file.close();
 }
