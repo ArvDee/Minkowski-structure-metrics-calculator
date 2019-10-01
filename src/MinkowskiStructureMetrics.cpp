@@ -919,4 +919,34 @@ namespace MSM {
     }
     return n_neighbours;
   }
+
+  // Fraction of total area per Voronoi neighbour
+  std::vector<double> MinkowskiStructureCalculator::voro_neighbour_area_fractions(size_t i){
+    std::vector<double> area_fractions = pData_[i].nb_face_areas;
+    // Normalize area by total cell area
+    for(double& a : area_fractions){
+      a /= pData_[i].total_face_area;
+    }
+    return area_fractions;
+  }
+  std::vector<std::vector<double>> MinkowskiStructureCalculator::voro_neighbour_area_fractions_all(void){
+    std::vector<std::vector<double>> all_area_fractions(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      all_area_fractions[i] = voro_neighbour_area_fractions(i);
+    }
+    return all_area_fractions;
+  }
+
+  // Total area of Voronoi cell
+  double MinkowskiStructureCalculator::voro_area(size_t i){
+    return pData_[i].total_face_area;
+  }
+  std::vector<double> MinkowskiStructureCalculator::voro_area_all(void){
+    std::vector<double> all_voro_areas(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      all_voro_areas[i] = voro_area(i);
+    }
+    return all_voro_areas;
+
+  }
 }

@@ -57,6 +57,8 @@ int main(int argc, char *argv[]){
           processor.save_boops(dir_name, "qdot"+i_str, processor.q_dot);
           processor.save_boops(dir_name, "avqdot"+i_str, processor.q_dot_av);
           processor.save_nbs(dir_name, "nbs"+i_str, processor.n_voro_nbs);
+          processor.save_facet_areas(dir_name, "facets"+i_str, processor.facet_areas);
+          processor.save_cell_areas(dir_name, "area"+i_str, processor.cell_areas);
         }
       }else{
         char* non_nr;
@@ -80,6 +82,8 @@ int main(int argc, char *argv[]){
         processor.save_boops(dir_name, "qdot", processor.q_dot);
         processor.save_boops(dir_name, "avqdot", processor.q_dot_av);
         processor.save_nbs(dir_name, "nbs", processor.n_voro_nbs);
+        processor.save_facet_areas(dir_name, "facets", processor.facet_areas);
+        processor.save_cell_areas(dir_name, "area", processor.cell_areas);
       }
       // The specified frame also takes up an argument slot => increment before processing next one
       arg++;
@@ -94,6 +98,8 @@ int main(int argc, char *argv[]){
       processor.save_boops(dir_name, "qdot", processor.q_dot);
       processor.save_boops(dir_name, "avqdot", processor.q_dot_av);
       processor.save_nbs(dir_name, "nbs", processor.n_voro_nbs);
+      processor.save_facet_areas(dir_name, "facets", processor.facet_areas);
+      processor.save_cell_areas(dir_name, "area", processor.cell_areas);
     }else{
       printf("Error: Could not recognize file extension '%s', try '.dat' or '.gsd'.\n",extension.c_str());
     }

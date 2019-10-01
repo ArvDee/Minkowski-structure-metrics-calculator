@@ -122,6 +122,12 @@ public:
   // Number of Voronoi neighbours
   int n_voro_neighbours(size_t i);
   std::vector<int> n_voro_neighbours_all(void);
+  // Fraction of total area per Voronoi neighbour
+  std::vector<double> voro_neighbour_area_fractions(size_t i);
+  std::vector<std::vector<double>> voro_neighbour_area_fractions_all(void);
+  // Total area of Voronoi cell
+  double voro_area(size_t i);
+  std::vector<double> voro_area_all(void);
 };
 
 } // End namespace MSM

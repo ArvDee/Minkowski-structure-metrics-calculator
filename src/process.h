@@ -24,6 +24,8 @@ public:
   std::vector<std::vector<double>> q_dot;
   std::vector<std::vector<double>> q_dot_av;
   std::vector<int> n_voro_nbs;
+  std::vector<std::vector<double>> facet_areas;
+  std::vector<double> cell_areas;
   SnapshotProcessor(void){};
   virtual ~SnapshotProcessor(void){};
 
@@ -43,6 +45,20 @@ public:
     const std::string target_dir,
     const std::string file_name,
     std::vector<int>& nbs_vector
+  )const;
+
+  // Creates new files to save the Voronoi facet area fractions
+  void save_facet_areas(
+    const std::string target_dir,
+    const std::string file_name,
+    std::vector<std::vector<double>>& facet_vector
+  )const;
+
+  // Creates new files to save the Voronoi facet area fractions
+  void save_cell_areas(
+    const std::string target_dir,
+    const std::string file_name,
+    std::vector<double>& area_vector
   )const;
 };
 

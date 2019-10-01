@@ -42,6 +42,8 @@ void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   q_dot = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   q_dot_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   n_voro_nbs = msm.n_voro_neighbours_all();
+  facet_areas = msm.voro_neighbour_area_fractions_all();
+  cell_areas = msm.voro_area_all();
   for(size_t l = 0; l <= max_l; l++){
     q[l] = msm.ql_all(l);
     w[l] = msm.wl_all(l);
@@ -122,6 +124,65 @@ void SnapshotProcessor::save_nbs(
   for(size_t i = 0; i < N; i++){
     file << nbs_vector[i] << '\n';
   }
-  std::cout << "Saved nb data to " << full_path << '\n';
+  std::cout << "Saved Voronoi neighbour data to " << full_path << '\n';
+  file.close();
+}
+
+// Creates new files to save the Voronoi facet area fractions
+void SnapshotProcessor::save_facet_areas(
+  const std::string target_dir,
+  const std::string file_name,
+  std::vector<std::vector<double>>& facet_vector
+)const{
+  size_t N = positions.size();
+  std::string extension = ".txt";
+  unsigned int idx = 0;
+  // Create the full path
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  // Check if the file name we want already exists
+  while( file_exists(full_path) ){
+    idx++;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  }
+  std::ofstream file;
+  // Write data
+  file.open(full_path, std::ios::out | std::ios::out);
+  for(size_t i = 0; i < N; i++){
+    for(size_t j = 0; j < facet_vector[i].size(); j++){
+      file << facet_vector[i][j] << ' ';
+    }
+    file << '\n';
+  }
+  std::cout << "Saved Voronoi facet data to " << full_path << '\n';
+  file.close();
+}
+
+// Creates new files to save the Voronoi facet area fractions
+void SnapshotProcessor::save_cell_areas(
+  const std::string target_dir,
+  const std::string file_name,
+  std::vector<double>& area_vector
+)const{
+  size_t N = positions.size();
+  std::string extension = ".txt";
+  unsigned int idx = 0;
+  // Create the full path
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  // Check if the file name we want already exists
+  while( file_exists(full_path) ){
+    idx++;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  }
+  std::ofstream file;
+  // Write data
+  file.open(full_path, std::ios::out | std::ios::out);
+  for(size_t i = 0; i < N; i++){
+    file << area_vector[i] << '\n';
+  }
+  std::cout << "Saved Voronoi area data to " << full_path << '\n';
   file.close();
 }
