@@ -122,7 +122,7 @@ void SnapshotProcessor::save_nbs(
   // Write data
   file.open(full_path, std::ios::out | std::ios::out);
   for(size_t i = 0; i < N; i++){
-    file << nbs_vector[i] << '\n';
+    file << nbs_vector[i] << ' ';
   }
   std::cout << "Saved Voronoi neighbour data to " << full_path << '\n';
   file.close();

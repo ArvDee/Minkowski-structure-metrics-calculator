@@ -937,7 +937,7 @@ namespace MSM {
     return all_area_fractions;
   }
 
-  // Total area of Voronoi cell
+  // Total area of Voronoi cell per particle
   double MinkowskiStructureCalculator::voro_area(size_t i){
     return pData_[i].total_face_area;
   }
