@@ -216,6 +216,7 @@ namespace MSM {
     // Tabulate calculated values for efficiency
     static std::map<std::tuple<int,int,int>, double> w3jMap;
     // Check if the Wigner 3j-symbol for this (l,m1,m2) is known already
+    // TODO: Checking the tuple key seems to be very slow. Improve it?
     std::tuple<int,int,int> lm1m2_key = std::make_tuple(l,m1,m2);
     if(w3jMap.find(lm1m2_key) == w3jMap.end()){
       // If symbol is not known, calculate it and store it in the map.
@@ -549,8 +550,8 @@ namespace MSM {
   }
 
   // Compute structure metrics for single particles and a single l.
-  // These do not store their results, and should only be used if you
-  // only need their values for a few particles in a larger system.
+  // These do not cache their results, and should only be used if you
+  // only need their values for a few particles in a large system.
   std::complex<double> MinkowskiStructureCalculator::qlm(size_t p_idx, unsigned int l, int m)const{
     const particleData& p = pData_[p_idx];
     std::complex<double> qlm(0.0, 0.0);
@@ -562,6 +563,7 @@ namespace MSM {
       std::complex<double> Ylm = spherical_harmonic(l, m, p.thetas[j], p.phis[j]);
       qlm += area_weight * Ylm;
     }
+    // if(p_idx == 0 && l == 6 && m == 3){ printf("%0.12f %0.12f\n",qlm.real(), qlm.imag()); }
     return qlm;
   }
   std::complex<double> MinkowskiStructureCalculator::qlm_av(size_t p_idx, unsigned int l, int m)const{
@@ -582,7 +584,7 @@ namespace MSM {
     }
     return sqrt(factor * sum_m);
   }
-  double MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{
+  double MinkowskiStructureCalculator::wl(size_t p_idx, unsigned int l)const{ // TODO: The wl are wrong (compare to e.g. Freud.)
     // Need the qlms first
     std::complex<double> qlms[2*l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -618,7 +620,7 @@ namespace MSM {
     }
     return sqrt(factor * sum_m);
   }
-  double MinkowskiStructureCalculator::wl_av(size_t p_idx, unsigned int l)const{
+  double MinkowskiStructureCalculator::wl_av(size_t p_idx, unsigned int l)const{ // TODO: The wl are wrong (compare to e.g. Freud.)
     // Need the qlms first
     std::complex<double> qlms[2*l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -660,6 +662,7 @@ namespace MSM {
       for(size_t i = 0; i < pData_.size(); i++){
         qlms[i] = qlm(i, l, m);
       }
+      // printf("%d %d %f %f\n",l, m, qlms[0].real(), qlms[0].imag());
       all_qlms_[lm_key] = qlms;
     }
     return all_qlms_[lm_key];
@@ -675,9 +678,10 @@ namespace MSM {
       }
       qls[i] = sqrt(factor * sum_m);
     }
+    // if(l == 6){ printf("%0.12f\n",qls[0]); }
     return qls;
   }
-  std::vector<double> MinkowskiStructureCalculator::wl_all(unsigned int l){
+  std::vector<double> MinkowskiStructureCalculator::wl_all(unsigned int l){ // TODO: The wl are wrong (compare to e.g. Freud.)
     // Get the required qlms in an (m, p_idx) structured array
     std::vector<std::complex<double>> qlms[2*l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -707,6 +711,7 @@ namespace MSM {
       if(wl < 1e-6 && qlms_norm < 1e-6){ wls[i] = 0.0; }
       else{ wls[i] = wl / qlms_norm; }
     }
+    // if(l == 6){ printf("%0.12f\n",wls[0]); }
     return wls;
   }
   const std::vector<std::complex<double>>& MinkowskiStructureCalculator::qlm_av_all(unsigned int l, int m){
@@ -723,6 +728,7 @@ namespace MSM {
         for(size_t nb_i : pData_[i].nb_indices){
           qlm_av += qlms[nb_i];
         }
+        // if(i==0) printf("%d %d %f %f\n",l, m, qlm_av.real(), qlm_av.imag());
         qlm_avs[i] = qlm_av / double(pData_[i].nb_indices.size()+1);
       }
       all_qlm_avs_[lm_key] = qlm_avs;
@@ -740,9 +746,10 @@ namespace MSM {
       }
       ql_avs[i] = sqrt(factor * sum_m);
     }
+    if(l == 6){ printf("%0.12f\n",ql_avs[0]); }
     return ql_avs;
   }
-  std::vector<double> MinkowskiStructureCalculator::wl_av_all(unsigned int l){
+  std::vector<double> MinkowskiStructureCalculator::wl_av_all(unsigned int l){ // TODO: The wl are wrong (compare to e.g. Freud.)
     // Get the required qlms in an (m, p_idx) structured array
     std::vector<std::complex<double>> qlm_avs[2*l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -772,6 +779,7 @@ namespace MSM {
       if(wl_av < 1e-6 && qlm_avs_norm < 1e-6){ wl_avs[i] = 0.0; }
       else{ wl_avs[i] = wl_av / qlm_avs_norm; }
     }
+    // if(l == 6){ printf("%0.12f\n",wl_avs[0]); }
     return wl_avs;
   }
 
@@ -868,7 +876,7 @@ namespace MSM {
 
   // Calculates the dot product of the qlms to define measure of crystallinity
   double MinkowskiStructureCalculator::bond_crystallinity(size_t i, size_t j, unsigned int l){
-    // Based on Rein ten Wolde et al. (DOI: 10.1063/1.471721)
+    // Based on ten Wolde et al. (DOI: 10.1063/1.471721)
     // Get the required qlms in an (m, p_idx) structured array
     std::complex<double> qlms_i[2*l + 1], qlms_j[2*l + 1];
     for(int m = -int(l); m <= int(l); m++){
@@ -897,16 +905,74 @@ namespace MSM {
     }
     return dot.real();
   }
+  // Calculates the bond qlm dot product for all bonds, and returns it as a tuple list
+  std::vector<std::tuple<size_t, size_t, double>> MinkowskiStructureCalculator::bond_crystallinity_all(unsigned int l){
+    std::vector<std::tuple<size_t, size_t, double>> bond_dots;
+    for(size_t i = 0; i < pData_.size(); i++){
+      for(int j_i : pData_[i].nb_indices){
+        size_t j = static_cast<size_t>(j_i); // nb_indices is int because of voro, we want uints here
+        if(j < i){ continue; } // Don't double-count. NOTE: this is only valid for Voronoi / cutoff nbs, since those are symmetric.
+        bond_dots.push_back( std::make_tuple(i, j, bond_crystallinity(i, j, l)) );
+      }
+    }
+    return bond_dots;
+  }
+
+  // Calculates the dot product of the qlms to define measure of crystallinity
+  double MinkowskiStructureCalculator::bond_crystallinity_av(size_t i, size_t j, unsigned int l){
+    // Based on ten Wolde et al. (DOI: 10.1063/1.471721)
+    // Get the required qlms in an (m, p_idx) structured array
+    std::complex<double> qlms_i[2*l + 1], qlms_j[2*l + 1];
+    for(int m = -int(l); m <= int(l); m++){
+      qlms_i[l+m] = qlm_av_all(l, m)[i];
+      qlms_j[l+m] = qlm_av_all(l, m)[j];
+    }
+    // Calculate the norms
+    double norm_i = 0.0, norm_j = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      norm_i += norm(qlms_i[l+m]);
+      norm_j += norm(qlms_j[l+m]);
+    }
+    norm_i = sqrt(norm_i);
+    norm_j = sqrt(norm_j);
+    // Calculate the dot product
+    std::complex<double> dot = 0.0;
+    for(int m = -int(l); m <= int(l); m++){
+      // Prevent precision errors if qlm's are almost 0 (e.g. for q=1, which should always be 0)
+      if( !(abs(qlms_i[l+m]) < 1e-6 && abs(norm_i) < 1e-6) ){
+        dot += (qlms_i[l+m] / norm_i) * conj(qlms_j[l+m] / norm_j);
+      }
+    }
+    // Result should be real
+    if(dot.imag() > 1e-6){
+      std::cerr << "Error: dot product of complex qlms has nonzero imaginary part.\n";
+    }
+    return dot.real();
+  }
+  // Calculates the bond qlm dot product for all bonds, and returns it as a tuple list
+  std::vector<std::tuple<size_t, size_t, double>> MinkowskiStructureCalculator::bond_crystallinity_av_all(unsigned int l){
+    std::vector<std::tuple<size_t, size_t, double>> bond_dots;
+    for(size_t i = 0; i < pData_.size(); i++){
+      for(int j_i : pData_[i].nb_indices){
+        size_t j = static_cast<size_t>(j_i); // nb_indices is int because of voro, we want uints here
+        if(j < i){ continue; } // Don't double-count. NOTE: this is only valid for Voronoi / cutoff nbs, since those are symmetric.
+        bond_dots.push_back( std::make_tuple(i, j, bond_crystallinity_av(i, j, l)) );
+      }
+    }
+    return bond_dots;
+  }
 
   // As above, but averages over all input l
   double MinkowskiStructureCalculator::bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l){
-    // Extension of Rein ten Wolde et al. (DOI: 10.1063/1.471721)
+    // Extension of ten Wolde et al. (DOI: 10.1063/1.471721)
     double dot_av = 0.0;
     for(unsigned int l : all_l){
       dot_av += bond_crystallinity(i, j, l);
     }
     return dot_av / double(all_l.size());
   }
+
+
 
   // Number of Voronoi neighbours
   int MinkowskiStructureCalculator::n_voro_neighbours(size_t i){
@@ -918,6 +984,18 @@ namespace MSM {
       n_neighbours[i] = n_voro_neighbours(i);
     }
     return n_neighbours;
+  }
+
+  // Area per Voronoi neighbour
+  std::vector<double> MinkowskiStructureCalculator::voro_neighbour_area(size_t i){
+    return pData_[i].nb_face_areas;
+  }
+  std::vector<std::vector<double>> MinkowskiStructureCalculator::voro_neighbour_area_all(void){
+    std::vector<std::vector<double>> all_area_fractions(pData_.size());
+    for(size_t i = 0; i < pData_.size(); i++){
+      all_area_fractions[i] = voro_neighbour_area(i);
+    }
+    return all_area_fractions;
   }
 
   // Fraction of total area per Voronoi neighbour

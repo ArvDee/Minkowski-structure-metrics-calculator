@@ -24,7 +24,7 @@ Once you have all these, the code should be compilable.
 
 #### Linux
 
-Navigate to `BOOP_per_snapshot/bin` and type `cmake ..; make`. The code should build.
+Navigate to `Minkowski-structure-metrics-calculator` and type `mkdir bin; cd bin; cmake ..; make`. The code should build.
 
 #### Windows / Mac
 

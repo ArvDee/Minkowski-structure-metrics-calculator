@@ -25,7 +25,10 @@ public:
   std::vector<std::vector<double>> q_dot_av;
   std::vector<int> n_voro_nbs;
   std::vector<std::vector<double>> facet_areas;
+  std::vector<std::vector<double>> facet_area_fractions;
   std::vector<double> cell_areas;
+  std::vector<std::tuple<size_t, size_t, double>> bond_crystallinity;
+  std::vector<std::tuple<size_t, size_t, double>> bond_crystallinity_av;
   SnapshotProcessor(void){};
   virtual ~SnapshotProcessor(void){};
 
@@ -59,6 +62,18 @@ public:
     const std::string target_dir,
     const std::string file_name,
     std::vector<double>& area_vector
+  )const;
+
+  void calculate_bond_crystallinity(size_t l);
+  void save_bond_crystallinity(
+    const std::string target_dir,
+    const std::string file_name,
+    std::vector<std::tuple<size_t, size_t, double>>& bond_crystallinity
+  )const;
+  void save_bond_crystallinity_av(
+    const std::string target_dir,
+    const std::string file_name,
+    std::vector<std::tuple<size_t, size_t, double>>& bond_crystallinity_av
   )const;
 };
 

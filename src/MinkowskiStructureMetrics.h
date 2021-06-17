@@ -117,11 +117,17 @@ public:
   std::vector<double> ql_dot_av_all(unsigned int l);
 
   double bond_crystallinity(size_t i, size_t j, unsigned int l);
+  std::vector<std::tuple<size_t, size_t, double>> bond_crystallinity_all(unsigned int l);
+  double bond_crystallinity_av(size_t i, size_t j, unsigned int l);
+  std::vector<std::tuple<size_t, size_t, double>> bond_crystallinity_av_all(unsigned int l);
   double bond_crystallinity_lav(size_t i, size_t j, std::vector<unsigned int> all_l);
 
   // Number of Voronoi neighbours
   int n_voro_neighbours(size_t i);
   std::vector<int> n_voro_neighbours_all(void);
+  // Area per Voronoi neighbour
+  std::vector<double> voro_neighbour_area(size_t i);
+  std::vector<std::vector<double>> voro_neighbour_area_all(void);
   // Fraction of total area per Voronoi neighbour
   std::vector<double> voro_neighbour_area_fractions(size_t i);
   std::vector<std::vector<double>> voro_neighbour_area_fractions_all(void);

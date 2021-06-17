@@ -42,7 +42,8 @@ void SnapshotProcessor::calculate_order_parameters(size_t max_l){
   q_dot = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   q_dot_av = std::vector<std::vector<double>>(max_l+1, std::vector<double>(N));
   n_voro_nbs = msm.n_voro_neighbours_all();
-  facet_areas = msm.voro_neighbour_area_fractions_all();
+  facet_areas = msm.voro_neighbour_area_all();
+  facet_area_fractions = msm.voro_neighbour_area_fractions_all();
   cell_areas = msm.voro_area_all();
   for(size_t l = 0; l <= max_l; l++){
     q[l] = msm.ql_all(l);
@@ -181,8 +182,66 @@ void SnapshotProcessor::save_cell_areas(
   // Write data
   file.open(full_path, std::ios::out | std::ios::out);
   for(size_t i = 0; i < N; i++){
-    file << area_vector[i] << '\n';
+    file << area_vector[i] << ' ';
   }
   std::cout << "Saved Voronoi area data to " << full_path << '\n';
+  file.close();
+}
+
+
+void SnapshotProcessor::calculate_bond_crystallinity(size_t l){
+  MSM::MinkowskiStructureCalculator msm;
+  msm.load_configuration(positions, a1, a2, a3);
+  bond_crystallinity = msm.bond_crystallinity_all(l);
+  bond_crystallinity_av = msm.bond_crystallinity_av_all(l);
+}
+void SnapshotProcessor::save_bond_crystallinity(
+  const std::string target_dir,
+  const std::string file_name,
+  std::vector<std::tuple<size_t, size_t, double>>& bond_crystallinity
+)const{
+  std::string extension = ".txt";
+  unsigned int idx = 0;
+  // Create the full path
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  // Check if the file name we want already exists
+  while( file_exists(full_path) ){
+    idx++;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  }
+  std::ofstream file;
+  // Write data
+  file.open(full_path, std::ios::out | std::ios::out);
+  for(size_t i = 0; i < bond_crystallinity_av.size(); i++){
+    file << std::get<0>(bond_crystallinity[i]) << ' ' << std::get<1>(bond_crystallinity[i]) << ' ' << std::get<2>(bond_crystallinity[i]) << '\n';
+  }
+  std::cout << "Saved bond dot products to " << full_path << '\n';
+  file.close();
+}
+void SnapshotProcessor::save_bond_crystallinity_av(
+  const std::string target_dir,
+  const std::string file_name,
+  std::vector<std::tuple<size_t, size_t, double>>& bond_crystallinity_av
+)const{
+  std::string extension = ".txt";
+  unsigned int idx = 0;
+  // Create the full path
+  std::string padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+  std::string full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  // Check if the file name we want already exists
+  while( file_exists(full_path) ){
+    idx++;
+    padded_idx_string = std::string(5 - std::to_string(idx).length(), '0') + std::to_string(idx);
+    full_path = target_dir + file_name + '_' + padded_idx_string + extension;
+  }
+  std::ofstream file;
+  // Write data
+  file.open(full_path, std::ios::out | std::ios::out);
+  for(size_t i = 0; i < bond_crystallinity_av.size(); i++){
+    file << std::get<0>(bond_crystallinity_av[i]) << ' ' << std::get<1>(bond_crystallinity_av[i]) << ' ' << std::get<2>(bond_crystallinity_av[i]) << '\n';
+  }
+  std::cout << "Saved bond dot products to " << full_path << '\n';
   file.close();
 }
